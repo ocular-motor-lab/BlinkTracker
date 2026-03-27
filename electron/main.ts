@@ -62,7 +62,24 @@ const createWindow = async (): Promise<void> => {
     return;
   }
 
+  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('did-fail-load', { errorCode, errorDescription, validatedURL });
+  });
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error('render-process-gone', details);
+  });
+
+  window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log('renderer-console', { level, message, line, sourceId });
+  });
+
+  console.log('loading packaged renderer', {
+    __dirname,
+    target: path.join(__dirname, '../../dist/index.html'),
+  });
   await window.loadFile(path.join(__dirname, '../../dist/index.html'));
+  window.webContents.openDevTools({ mode: 'detach' });
 };
 
 app.whenReady().then(() => {

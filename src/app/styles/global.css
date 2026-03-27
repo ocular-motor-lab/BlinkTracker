@@ -132,16 +132,11 @@ button {
 
 .analysis-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.35fr) minmax(320px, 0.9fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
 }
 
 .acquire-side {
-  display: grid;
-  gap: 20px;
-}
-
-.analysis-side {
   display: grid;
   gap: 20px;
 }
@@ -337,16 +332,16 @@ textarea {
 
 .analysis-video-stack {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .analysis-video-frame {
-  min-height: 220px;
+  min-height: 180px;
 }
 
 .analysis-scrubber-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto auto;
   gap: 12px;
   align-items: center;
 }
@@ -379,15 +374,34 @@ textarea {
 }
 
 .analysis-plot-large {
-  min-height: 520px;
+  min-height: 620px;
 }
 
 .analysis-main-scrubber {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .analysis-video-card video {
-  min-height: 220px;
+  min-height: 180px;
+}
+
+.analysis-support-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.analysis-hint {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.session-folder-path {
+  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .blink-editor-list {
@@ -450,6 +464,38 @@ textarea {
   background: rgba(8, 17, 29, 0.55);
 }
 
+.analysis-plot-shell {
+  position: relative;
+  cursor: zoom-in !important;
+}
+
+.analysis-plot-shell .plotly-trace {
+  cursor: zoom-in !important;
+}
+
+.analysis-plot-shell.is-trace-add-mode {
+  cursor: crosshair !important;
+}
+
+.analysis-plot-shell.is-trace-add-mode .plotly-trace {
+  cursor: crosshair !important;
+}
+
+.analysis-plot-shell.is-edge-drag.is-edge-start,
+.analysis-plot-shell.is-edge-drag.is-edge-start .plotly-trace {
+  cursor: w-resize !important;
+}
+
+.analysis-plot-shell.is-edge-drag.is-edge-end,
+.analysis-plot-shell.is-edge-drag.is-edge-end .plotly-trace {
+  cursor: e-resize !important;
+}
+
+.analysis-plot-shell.is-edge-drag:not(.is-edge-start):not(.is-edge-end),
+.analysis-plot-shell.is-edge-drag:not(.is-edge-start):not(.is-edge-end) .plotly-trace {
+  cursor: ew-resize !important;
+}
+
 .metric-grid dt {
   color: var(--muted);
   font-size: 0.88rem;
@@ -502,6 +548,10 @@ textarea {
   }
 
   .analysis-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-support-grid {
     grid-template-columns: 1fr;
   }
 

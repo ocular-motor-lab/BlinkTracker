@@ -4,6 +4,9 @@ import { StatusBanner } from '@app/components/StatusBanner';
 import { useAppStore } from '@app/state/useAppStore';
 import type { AnalysisRowValue, BlinkEventRow } from '@ipc/schemas';
 
+const ANALYSIS_PLOT_MARGIN = { left: 44, right: 18 } as const;
+const BLINK_EDGE_HIT_WIDTH_PX = 14;
+
 const toMediaUrl = (filePath: string): string => `app-media://local?path=${encodeURIComponent(filePath)}`;
 
 const toNumber = (value: AnalysisRowValue | undefined): number | null => {
@@ -48,8 +51,10 @@ export const AnalysisPage = (): JSX.Element => {
   const setAnalysisSession = useAppStore((state) => state.setAnalysisSession);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const plotShellRef = useRef<HTMLDivElement | null>(null);
   const plotRef = useRef<HTMLDivElement | null>(null);
   const xRangeRef = useRef<[number, number] | null>(null);
+  const dragStateRef = useRef<{ index: number; boundary: 'start' | 'end' } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -60,8 +65,12 @@ export const AnalysisPage = (): JSX.Element => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [blinkRowsDraft, setBlinkRowsDraft] = useState<BlinkEventRow[]>([]);
   const [selectedBlinkIndex, setSelectedBlinkIndex] = useState<number | null>(null);
+  const [hoveredBlinkIndex, setHoveredBlinkIndex] = useState<number | null>(null);
+  const [hoveredBlinkBoundary, setHoveredBlinkBoundary] = useState<'start' | 'end' | null>(null);
+  const [hoveredBlinkEdgeIndex, setHoveredBlinkEdgeIndex] = useState<number | null>(null);
   const [isAddingBlinkFromTrace, setIsAddingBlinkFromTrace] = useState(false);
   const [pendingBlinkStartSec, setPendingBlinkStartSec] = useState<number | null>(null);
+  const [xRangeState, setXRangeState] = useState<[number, number] | null>(null);
 
   const mediaSyncOffsetSec = analysisSession?.mediaSyncOffsetSec ?? analysisSession?.timelineStartSec ?? 0;
   const timelineStartSec = analysisSession?.timelineStartSec ?? 0;
@@ -85,6 +94,7 @@ export const AnalysisPage = (): JSX.Element => {
       setIsAddingBlinkFromTrace(false);
       setPendingBlinkStartSec(null);
       xRangeRef.current = null;
+      setXRangeState(null);
       if (videoRef.current) {
         videoRef.current.pause();
       }
@@ -97,6 +107,12 @@ export const AnalysisPage = (): JSX.Element => {
 
   const handleDetectBlinks = async () => {
     if (!analysisSession || !window.electronAPI) {
+      return;
+    }
+    const confirmed = window.confirm(
+      'Auto-detect will regenerate the blink list and replace any existing manual blink edits for this session. Continue?'
+    );
+    if (!confirmed) {
       return;
     }
     setIsDetecting(true);
@@ -231,39 +247,30 @@ export const AnalysisPage = (): JSX.Element => {
       const end = event['xaxis.range[1]'];
       if (typeof start === 'number' && typeof end === 'number') {
         xRangeRef.current = [start, end];
+        setXRangeState([start, end]);
       } else if (typeof start === 'string' && typeof end === 'string') {
         const parsedStart = Number(start);
         const parsedEnd = Number(end);
         if (Number.isFinite(parsedStart) && Number.isFinite(parsedEnd)) {
           xRangeRef.current = [parsedStart, parsedEnd];
+          setXRangeState([parsedStart, parsedEnd]);
         }
       } else if (event['xaxis.autorange'] === true) {
         xRangeRef.current = null;
+        setXRangeState(null);
       }
 
-      for (const [key, value] of Object.entries(event)) {
-        const match = key.match(/^shapes\[(\d+)\]\.(x0|x1)$/);
-        if (!match) {
-          continue;
-        }
-        const shapeIndex = Number(match[1]);
-        const boundary = match[2];
-        const blinkEntry = activeBlinkEntries[shapeIndex];
-        if (!blinkEntry) {
-          continue;
-        }
-        const nextValue = typeof value === 'number' ? value : Number(value);
-        if (!Number.isFinite(nextValue)) {
-          continue;
-        }
-        const nextStart = boundary === 'x0' ? nextValue : blinkEntry.row.start_time_sec;
-        const nextEnd = boundary === 'x1' ? nextValue : blinkEntry.row.end_time_sec;
-        updateBlinkDraft(blinkEntry.index, {
-          start_time_sec: Math.min(nextStart, nextEnd),
-          end_time_sec: Math.max(nextStart, nextEnd),
-          is_manually_edited: 1
+      if (event['yaxis.autorange'] === true || event['yaxis.range[0]'] != null || event['yaxis.range[1]'] != null) {
+        queueMicrotask(() => {
+          if (plotRef.current) {
+            void (Plotly as unknown as { relayout: (target: HTMLDivElement, update: Record<string, unknown>) => Promise<void> }).relayout(
+              plotRef.current,
+              { 'yaxis.range': [0, 110] }
+            );
+          }
         });
       }
+
     };
 
     container.on('plotly_relayout', handleRelayout);
@@ -271,57 +278,6 @@ export const AnalysisPage = (): JSX.Element => {
       container.removeListener?.('plotly_relayout', handleRelayout);
     };
   }, [activeBlinkEntries, analysisSession?.paths.sessionFolder]);
-
-  useEffect(() => {
-    const container = plotRef.current as ((HTMLDivElement & { on?: (...args: any[]) => void; removeListener?: (...args: any[]) => void }) | null);
-    if (!container?.on) {
-      return;
-    }
-
-    const handleClick = (event: { points?: Array<{ x?: number }> }) => {
-      const clickedTime = typeof event.points?.[0]?.x === 'number' ? event.points[0].x : null;
-      if (clickedTime == null) {
-        return;
-      }
-
-      seekTo(clickedTime);
-      if (!isAddingBlinkFromTrace) {
-        const containing = activeBlinkEntries.find(
-          ({ row }) => clickedTime >= row.start_time_sec && clickedTime <= row.end_time_sec
-        );
-        if (containing) {
-          setSelectedBlinkIndex(containing.index);
-          return;
-        }
-        const nearest = activeBlinkEntries
-          .map((entry) => ({
-            ...entry,
-            distance: Math.abs(((entry.row.start_time_sec + entry.row.end_time_sec) / 2) - clickedTime)
-          }))
-          .sort((a, b) => a.distance - b.distance)[0];
-        if (nearest && nearest.distance <= 0.25) {
-          setSelectedBlinkIndex(nearest.index);
-        }
-        return;
-      }
-
-      if (pendingBlinkStartSec == null) {
-        setPendingBlinkStartSec(clickedTime);
-        setSuccessMessage('Blink start marked on trace. Click a second time to mark the end.');
-        return;
-      }
-
-      addManualBlinkFromRange(pendingBlinkStartSec, clickedTime);
-      setPendingBlinkStartSec(null);
-      setIsAddingBlinkFromTrace(false);
-      setSuccessMessage('Manual blink added from the trace. Save blink edits to persist it.');
-    };
-
-    container.on('plotly_click', handleClick);
-    return () => {
-      container.removeListener?.('plotly_click', handleClick);
-    };
-  }, [activeBlinkEntries, analysisSession, isAddingBlinkFromTrace, pendingBlinkStartSec]);
 
   const traceSeries = useMemo(() => {
     if (!analysisSession) {
@@ -334,6 +290,40 @@ export const AnalysisPage = (): JSX.Element => {
 
     return { timestamps, left, right };
   }, [analysisSession]);
+
+  const zoomTrace = (factor: number) => {
+    if (!traceSeries?.timestamps.length) {
+      return;
+    }
+
+    const minTime = traceSeries.timestamps[0];
+    const maxTime = traceSeries.timestamps[traceSeries.timestamps.length - 1];
+    const currentRange = xRangeRef.current ?? [minTime, maxTime];
+    const currentSpan = Math.max(0.25, currentRange[1] - currentRange[0]);
+    const nextSpan = Math.max(0.25, Math.min(maxTime - minTime, currentSpan * factor));
+    const center = (currentRange[0] + currentRange[1]) / 2;
+    let nextStart = center - nextSpan / 2;
+    let nextEnd = center + nextSpan / 2;
+
+    if (nextStart < minTime) {
+      nextEnd += minTime - nextStart;
+      nextStart = minTime;
+    }
+    if (nextEnd > maxTime) {
+      nextStart -= nextEnd - maxTime;
+      nextEnd = maxTime;
+    }
+
+    xRangeRef.current = [Math.max(minTime, nextStart), Math.min(maxTime, nextEnd)];
+    setXRangeState(xRangeRef.current);
+    setBlinkRowsDraft((previous) => [...previous]);
+  };
+
+  const resetTraceZoom = () => {
+    xRangeRef.current = null;
+    setXRangeState(null);
+    setBlinkRowsDraft((previous) => [...previous]);
+  };
 
   useEffect(() => {
     const container = plotRef.current;
@@ -349,6 +339,7 @@ export const AnalysisPage = (): JSX.Element => {
               ? 'rgba(56, 189, 248, 0.28)'
               : 'rgba(244, 114, 182, 0.32)';
         const isSelected = index === selectedBlinkIndex;
+        const isHovered = index === hoveredBlinkIndex;
         return {
           type: 'rect' as const,
           x0: row.start_time_sec,
@@ -358,8 +349,8 @@ export const AnalysisPage = (): JSX.Element => {
           yref: 'paper',
           fillcolor: color,
           line: {
-            color: isSelected ? '#f8fafc' : color.replace(/0\.\d+\)/, '0.8)'),
-            width: isSelected ? 3 : 1
+            color: isSelected || isHovered ? '#f8fafc' : color.replace(/0\.\d+\)/, '0.8)'),
+            width: isSelected ? 3 : isHovered ? 2 : 1
           }
         };
       });
@@ -429,7 +420,7 @@ export const AnalysisPage = (): JSX.Element => {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(8,17,29,0.55)',
         margin: { l: 44, r: 18, t: 24, b: 40 },
-        dragmode: 'zoom',
+        dragmode: isAddingBlinkFromTrace || hoveredBlinkBoundary != null ? false : 'zoom',
         showlegend: true,
         uirevision: 'analysis-trace',
         legend: {
@@ -443,6 +434,7 @@ export const AnalysisPage = (): JSX.Element => {
           color: '#cbd5e1',
           gridcolor: 'rgba(148,163,184,0.14)',
           zeroline: false,
+          fixedrange: false,
           autorange: xRangeRef.current == null,
           range: xRangeRef.current ?? undefined
         },
@@ -450,7 +442,8 @@ export const AnalysisPage = (): JSX.Element => {
           title: 'Opening (%)',
           color: '#cbd5e1',
           gridcolor: 'rgba(148,163,184,0.14)',
-          range: [0, 110]
+          range: [0, 110],
+          fixedrange: true
         },
         shapes: [
           ...blinkShapes,
@@ -468,12 +461,12 @@ export const AnalysisPage = (): JSX.Element => {
       },
       {
         displayModeBar: false,
-        edits: { shapePosition: true },
-        scrollZoom: true,
+        edits: { shapePosition: false },
+        scrollZoom: !isAddingBlinkFromTrace && hoveredBlinkBoundary == null,
         responsive: true
       }
     );
-  }, [activeBlinkEntries, currentTimeSec, pendingBlinkStartSec, selectedBlinkIndex, traceSeries]);
+  }, [activeBlinkEntries, currentTimeSec, hoveredBlinkBoundary, hoveredBlinkIndex, isAddingBlinkFromTrace, pendingBlinkStartSec, selectedBlinkIndex, traceSeries]);
 
   const currentFrame = useMemo(() => {
     if (!analysisSession?.frameRows.length) {
@@ -501,6 +494,54 @@ export const AnalysisPage = (): JSX.Element => {
     [blinkRowsDraft]
   );
 
+  const orderedFrameTimes = useMemo(
+    () =>
+      analysisSession?.frameRows
+        .map((row) => toNumber(row.timestamp_sec))
+        .filter((value): value is number => value != null) ?? [],
+    [analysisSession]
+  );
+
+  const visibleXRange = useMemo<[number, number] | null>(() => {
+    if (!traceSeries?.timestamps.length) {
+      return null;
+    }
+    return xRangeState ?? [traceSeries.timestamps[0], traceSeries.timestamps[traceSeries.timestamps.length - 1]];
+  }, [traceSeries, xRangeState]);
+
+  const selectedBlink = selectedBlinkIndex == null ? null : blinkRowsDraft[selectedBlinkIndex] ?? null;
+
+  const clientXToTraceTime = (clientX: number): number | null => {
+    const shell = plotShellRef.current;
+    if (!shell || !visibleXRange) {
+      return null;
+    }
+
+    const rect = shell.getBoundingClientRect();
+    const innerWidth = rect.width - ANALYSIS_PLOT_MARGIN.left - ANALYSIS_PLOT_MARGIN.right;
+    if (innerWidth <= 0) {
+      return null;
+    }
+
+    const x = Math.max(0, Math.min(innerWidth, clientX - rect.left - ANALYSIS_PLOT_MARGIN.left));
+    return visibleXRange[0] + (x / innerWidth) * (visibleXRange[1] - visibleXRange[0]);
+  };
+
+  const edgeHitThresholdSec = (): number | null => {
+    const shell = plotShellRef.current;
+    if (!shell || !visibleXRange) {
+      return null;
+    }
+
+    const rect = shell.getBoundingClientRect();
+    const innerWidth = rect.width - ANALYSIS_PLOT_MARGIN.left - ANALYSIS_PLOT_MARGIN.right;
+    if (innerWidth <= 0) {
+      return null;
+    }
+
+    return (BLINK_EDGE_HIT_WIDTH_PX / innerWidth) * (visibleXRange[1] - visibleXRange[0]);
+  };
+
   const togglePlayback = async () => {
     const video = videoRef.current;
     if (!video) {
@@ -526,6 +567,73 @@ export const AnalysisPage = (): JSX.Element => {
     }
   };
 
+  const stepFrame = (direction: -1 | 1) => {
+    if (!orderedFrameTimes.length) {
+      return;
+    }
+
+    let nextIndex = orderedFrameTimes.findIndex((time) => time >= currentTimeSec - 1e-6);
+    if (nextIndex === -1) {
+      nextIndex = orderedFrameTimes.length - 1;
+    }
+    if (direction < 0) {
+      if (orderedFrameTimes[nextIndex] >= currentTimeSec + 1e-6) {
+        nextIndex = Math.max(0, nextIndex - 1);
+      } else {
+        nextIndex = Math.max(0, nextIndex - 1);
+      }
+    } else if (orderedFrameTimes[nextIndex] <= currentTimeSec + 1e-6) {
+      nextIndex = Math.min(orderedFrameTimes.length - 1, nextIndex + 1);
+    }
+
+    seekTo(orderedFrameTimes[nextIndex]);
+  };
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      const dragState = dragStateRef.current;
+      const shell = plotShellRef.current;
+      if (!dragState || !shell || !visibleXRange) {
+        return;
+      }
+
+      const rect = shell.getBoundingClientRect();
+      const innerWidth = rect.width - ANALYSIS_PLOT_MARGIN.left - ANALYSIS_PLOT_MARGIN.right;
+      if (innerWidth <= 0) {
+        return;
+      }
+
+      const x = Math.max(
+        0,
+        Math.min(innerWidth, event.clientX - rect.left - ANALYSIS_PLOT_MARGIN.left)
+      );
+      const timeSec = visibleXRange[0] + (x / innerWidth) * (visibleXRange[1] - visibleXRange[0]);
+      const row = blinkRowsDraft[dragState.index];
+      if (!row) {
+        return;
+      }
+
+      const nextStart = dragState.boundary === 'start' ? timeSec : row.start_time_sec;
+      const nextEnd = dragState.boundary === 'end' ? timeSec : row.end_time_sec;
+      updateBlinkDraft(dragState.index, {
+        start_time_sec: Math.min(nextStart, nextEnd),
+        end_time_sec: Math.max(nextStart, nextEnd),
+        is_manually_edited: 1
+      });
+    };
+
+    const handleUp = () => {
+      dragStateRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [blinkRowsDraft, visibleXRange]);
+
   if (!analysisSession) {
     return (
       <section className="placeholder-card">
@@ -550,16 +658,6 @@ export const AnalysisPage = (): JSX.Element => {
   return (
     <section className="analysis-layout">
       <div className="card trace-card analysis-primary-card">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Analysis</p>
-            <h3>Whole-session opening plot</h3>
-          </div>
-          <p className="section-copy">
-            Review the full opening trace, scrub to any moment, and use the side panel for compact video confirmation.
-          </p>
-        </div>
-
         {error ? <StatusBanner tone="error" message={error} /> : null}
         {successMessage ? <StatusBanner tone="success" message={successMessage} /> : null}
 
@@ -583,6 +681,7 @@ export const AnalysisPage = (): JSX.Element => {
           </button>
           <button
             className={isAddingBlinkFromTrace ? 'selected' : ''}
+            title={isAddingBlinkFromTrace ? 'Trace-add mode is active' : 'Click once for one edge, then click again for the other edge'}
             onClick={() => {
               setSuccessMessage(null);
               setIsAddingBlinkFromTrace((value) => {
@@ -597,11 +696,124 @@ export const AnalysisPage = (): JSX.Element => {
           >
             {isAddingBlinkFromTrace ? 'Cancel Trace Add' : 'Add Blink From Trace'}
           </button>
+          <button onClick={() => zoomTrace(0.7)} type="button">
+            Zoom In
+          </button>
+          <button onClick={() => zoomTrace(1.4)} type="button">
+            Zoom Out
+          </button>
+          <button onClick={() => resetTraceZoom()} type="button">
+            Reset Zoom
+          </button>
         </div>
-        <div ref={plotRef} className="plotly-trace analysis-plot analysis-plot-large" />
+        <div
+          ref={plotShellRef}
+          className={`analysis-plot-shell ${isAddingBlinkFromTrace ? 'is-trace-add-mode' : ''} ${hoveredBlinkBoundary ? `is-edge-drag is-edge-${hoveredBlinkBoundary}` : ''}`}
+          onMouseDown={(event) => {
+            const clickedTime = clientXToTraceTime(event.clientX);
+            if (clickedTime == null) {
+              return;
+            }
+
+            if (hoveredBlinkEdgeIndex != null && hoveredBlinkBoundary) {
+              event.preventDefault();
+              event.stopPropagation();
+              setSelectedBlinkIndex(hoveredBlinkEdgeIndex);
+              dragStateRef.current = { index: hoveredBlinkEdgeIndex, boundary: hoveredBlinkBoundary };
+              return;
+            }
+
+            seekTo(clickedTime);
+
+            if (isAddingBlinkFromTrace) {
+              event.preventDefault();
+              if (pendingBlinkStartSec == null) {
+                setPendingBlinkStartSec(clickedTime);
+                setSuccessMessage('First blink edge marked. Click again to set the second edge.');
+                return;
+              }
+
+              addManualBlinkFromRange(pendingBlinkStartSec, clickedTime);
+              setPendingBlinkStartSec(null);
+              setIsAddingBlinkFromTrace(false);
+              setSuccessMessage('Manual blink added from the trace. Save blink edits to persist it.');
+              return;
+            }
+
+            const containing = activeBlinkEntries.find(
+              ({ row }) => clickedTime >= row.start_time_sec && clickedTime <= row.end_time_sec
+            );
+            if (containing) {
+              setSelectedBlinkIndex(containing.index);
+              return;
+            }
+
+            const nearest = activeBlinkEntries
+              .map((entry) => ({
+                ...entry,
+                distance: Math.abs(((entry.row.start_time_sec + entry.row.end_time_sec) / 2) - clickedTime)
+              }))
+              .sort((a, b) => a.distance - b.distance)[0];
+            if (nearest && nearest.distance <= 0.35) {
+              setSelectedBlinkIndex(nearest.index);
+            }
+          }}
+          onMouseMove={(event) => {
+            const hoveredTime = clientXToTraceTime(event.clientX);
+            if (hoveredTime == null) {
+              setHoveredBlinkIndex(null);
+              setHoveredBlinkBoundary(null);
+              setHoveredBlinkEdgeIndex(null);
+              return;
+            }
+            const edgeThreshold = edgeHitThresholdSec();
+            const hovered = activeBlinkEntries.find(
+              ({ row }) => hoveredTime >= row.start_time_sec && hoveredTime <= row.end_time_sec
+            );
+            setHoveredBlinkIndex(hovered?.index ?? null);
+            if (edgeThreshold == null) {
+              setHoveredBlinkBoundary(null);
+              setHoveredBlinkEdgeIndex(null);
+              return;
+            }
+
+            const nearestEdge = activeBlinkEntries
+              .flatMap((entry) => [
+                { index: entry.index, boundary: 'start' as const, distance: Math.abs(hoveredTime - entry.row.start_time_sec) },
+                { index: entry.index, boundary: 'end' as const, distance: Math.abs(hoveredTime - entry.row.end_time_sec) }
+              ])
+              .sort((a, b) => a.distance - b.distance)[0];
+
+            if (nearestEdge && nearestEdge.distance <= edgeThreshold) {
+              setHoveredBlinkBoundary(nearestEdge.boundary);
+              setHoveredBlinkEdgeIndex(nearestEdge.index);
+            } else {
+              setHoveredBlinkBoundary(null);
+              setHoveredBlinkEdgeIndex(null);
+            }
+
+            if (hovered) {
+              const startDistance = Math.abs(hoveredTime - hovered.row.start_time_sec);
+              const endDistance = Math.abs(hoveredTime - hovered.row.end_time_sec);
+              if (startDistance <= edgeThreshold || endDistance <= edgeThreshold) {
+                setHoveredBlinkIndex(hovered.index);
+              }
+            }
+          }}
+          onMouseLeave={() => {
+            setHoveredBlinkIndex(null);
+            setHoveredBlinkBoundary(null);
+            setHoveredBlinkEdgeIndex(null);
+          }}
+        >
+          <div ref={plotRef} className="plotly-trace analysis-plot analysis-plot-large" />
+        </div>
         <div className="analysis-scrubber-row analysis-main-scrubber">
           <button onClick={() => void togglePlayback()} type="button">
             {videoRef.current?.paused === false ? 'Pause' : 'Play'}
+          </button>
+          <button onClick={() => stepFrame(-1)} title="Previous frame" type="button">
+            Prev Frame
           </button>
           <input
             max={Math.max(analysisSession.durationSec, timelineStartSec + 0.001)}
@@ -611,19 +823,144 @@ export const AnalysisPage = (): JSX.Element => {
             type="range"
             value={currentTimeSec}
           />
+          <button onClick={() => stepFrame(1)} title="Next frame" type="button">
+            Next Frame
+          </button>
           <span>{currentTimeSec.toFixed(2)} s</span>
         </div>
-        <p className="field-helper">
-          The pink cursor follows the current playback time or scrubber position. Click a shaded blink to select it, then drag its left or right edge to adjust timing.
-        </p>
-        <p className="field-helper">
-          Editing tips: use `Auto-Detect Blinks` first, click a blink to select it, drag the shaded edges to resize it, or use `Add Blink From Trace` to create a new one from two clicks.
+        <p className="field-helper analysis-hint">
+          Click a blink to select it. Move near the left or right edge until the cursor changes, then drag to adjust timing.
         </p>
         {isAddingBlinkFromTrace ? (
-          <p className="field-helper">
-            Trace-add mode is on. Click once for blink start and again for blink end.
+          <p className="field-helper analysis-hint">
+            Trace-add mode is on. Zoom is temporarily disabled. Click once for one edge and click again for the other edge.
           </p>
         ) : null}
+
+        <div className="analysis-support-grid">
+          <div className="card analysis-video-card">
+            <div className="section-heading compact">
+              <div>
+                <p className="eyebrow">Video</p>
+                <h3>Reference view</h3>
+              </div>
+            </div>
+            {analysisSession.mediaPath ? (
+              <div className="analysis-video-stack">
+                {videoError ? <StatusBanner tone="info" message={videoError} /> : null}
+                <div className="preview-frame analysis-video-frame">
+                  <video
+                    key={analysisSession.mediaPath}
+                    ref={videoRef}
+                    autoPlay={false}
+                    controls
+                    muted
+                    onLoadedData={(event) => {
+                      setVideoError(null);
+                      if (event.currentTarget.currentTime === 0) {
+                        event.currentTarget.currentTime = 0.05;
+                      }
+                    }}
+                    onError={() =>
+                      setVideoError(
+                        'This media file could not be decoded in the desktop shell. The trace is still available for review.'
+                      )
+                    }
+                    onLoadedMetadata={(event) => {
+                      setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime));
+                      if (event.currentTarget.duration > 0 && event.currentTarget.currentTime === 0) {
+                        event.currentTarget.currentTime = 0.05;
+                      }
+                    }}
+                    onPause={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
+                    onSeeked={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
+                    onTimeUpdate={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
+                    playsInline
+                    preload="auto"
+                    src={toMediaUrl(analysisSession.mediaPath)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="analysis-trace-only">
+                <p className="field-helper">No playable media file was found for this session.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="card metrics-card">
+            <div className="section-heading compact">
+              <div>
+                <p className="eyebrow">Current Frame</p>
+                <h3>Review metrics</h3>
+              </div>
+            </div>
+            <dl className="metric-grid">
+              <div>
+                <dt>Current time</dt>
+                <dd>{currentTimeSec.toFixed(2)} s</dd>
+              </div>
+              <div>
+                <dt>Frames loaded</dt>
+                <dd>{analysisSession.frameCount}</dd>
+              </div>
+              <div>
+                <dt>Left opening %</dt>
+                <dd>{formatMetric(toNumber(currentFrame?.left_opening_percent))}</dd>
+              </div>
+              <div>
+                <dt>Right opening %</dt>
+                <dd>{formatMetric(toNumber(currentFrame?.right_opening_percent))}</dd>
+              </div>
+              <div>
+                <dt>Left confidence</dt>
+                <dd>{formatMetric(toNumber(currentFrame?.left_tracking_confidence), 2)}</dd>
+              </div>
+              <div>
+                <dt>Right confidence</dt>
+                <dd>{formatMetric(toNumber(currentFrame?.right_tracking_confidence), 2)}</dd>
+              </div>
+              <div>
+                <dt>Blinks</dt>
+                <dd>{activeBlinkCount}</dd>
+              </div>
+              <div>
+                <dt>Duration</dt>
+                <dd>{analysisSession.durationSec.toFixed(2)} s</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="card metrics-card">
+            <div className="section-heading compact">
+              <div>
+                <p className="eyebrow">Metadata</p>
+                <h3>Session details</h3>
+              </div>
+            </div>
+            <dl className="metric-grid">
+              <div>
+                <dt>Session</dt>
+                <dd>{String(analysisSession.metadata.session_name ?? 'Unnamed')}</dd>
+              </div>
+              <div>
+                <dt>Subject ID</dt>
+                <dd>{String(analysisSession.metadata.subject_id ?? 'NA')}</dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd>{String(analysisSession.metadata.source_name ?? 'NA')}</dd>
+              </div>
+              <div>
+                <dt>Tracking model</dt>
+                <dd>{String(analysisSession.metadata.tracking_model ?? 'NA')}</dd>
+              </div>
+            </dl>
+            <p className="field-helper session-folder-path" title={analysisSession.paths.sessionFolder}>
+              {analysisSession.paths.sessionFolder}
+            </p>
+          </div>
+        </div>
 
         <div className="card metrics-card">
           <div className="section-heading compact">
@@ -688,130 +1025,6 @@ export const AnalysisPage = (): JSX.Element => {
               ))
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="analysis-side">
-        <div className="card analysis-video-card">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">Video</p>
-              <h3>Reference view</h3>
-            </div>
-          </div>
-          {analysisSession.mediaPath ? (
-            <div className="analysis-video-stack">
-              {videoError ? <StatusBanner tone="info" message={videoError} /> : null}
-              <div className="preview-frame analysis-video-frame">
-                <video
-                  key={analysisSession.mediaPath}
-                  ref={videoRef}
-                  autoPlay={false}
-                  controls
-                  muted
-                  onLoadedData={(event) => {
-                    setVideoError(null);
-                    if (event.currentTarget.currentTime === 0) {
-                      event.currentTarget.currentTime = 0.05;
-                    }
-                  }}
-                  onError={() =>
-                    setVideoError(
-                      'This media file could not be decoded in the desktop shell. The trace is still available for review.'
-                    )
-                  }
-                  onLoadedMetadata={(event) => {
-                    setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime));
-                    if (event.currentTarget.duration > 0 && event.currentTarget.currentTime === 0) {
-                      event.currentTarget.currentTime = 0.05;
-                    }
-                  }}
-                  onPause={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
-                  onSeeked={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
-                  onTimeUpdate={(event) => setCurrentTimeSec(toTraceTime(event.currentTarget.currentTime))}
-                  playsInline
-                  preload="auto"
-                  src={toMediaUrl(analysisSession.mediaPath)}
-                />
-              </div>
-              <p className="field-helper">Compact video review stays synced to the shared scrubber.</p>
-            </div>
-          ) : (
-            <div className="analysis-trace-only">
-              <p className="field-helper">No playable media file was found for this session. Trace-only review is still available.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="card metrics-card">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">Current Frame</p>
-              <h3>Review metrics</h3>
-            </div>
-          </div>
-          <dl className="metric-grid">
-            <div>
-              <dt>Current time</dt>
-              <dd>{currentTimeSec.toFixed(2)} s</dd>
-            </div>
-            <div>
-              <dt>Frames loaded</dt>
-              <dd>{analysisSession.frameCount}</dd>
-            </div>
-            <div>
-              <dt>Left opening %</dt>
-              <dd>{formatMetric(toNumber(currentFrame?.left_opening_percent))}</dd>
-            </div>
-            <div>
-              <dt>Right opening %</dt>
-              <dd>{formatMetric(toNumber(currentFrame?.right_opening_percent))}</dd>
-            </div>
-            <div>
-              <dt>Left confidence</dt>
-              <dd>{formatMetric(toNumber(currentFrame?.left_tracking_confidence), 2)}</dd>
-            </div>
-            <div>
-              <dt>Right confidence</dt>
-              <dd>{formatMetric(toNumber(currentFrame?.right_tracking_confidence), 2)}</dd>
-            </div>
-            <div>
-              <dt>Blink rows</dt>
-              <dd>{activeBlinkCount}</dd>
-            </div>
-            <div>
-              <dt>Session duration</dt>
-              <dd>{analysisSession.durationSec.toFixed(2)} s</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="card metrics-card">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">Metadata</p>
-              <h3>Session details</h3>
-            </div>
-          </div>
-          <dl className="metric-grid">
-            <div>
-              <dt>Session</dt>
-              <dd>{String(analysisSession.metadata.session_name ?? 'Unnamed')}</dd>
-            </div>
-            <div>
-              <dt>Subject ID</dt>
-              <dd>{String(analysisSession.metadata.subject_id ?? 'NA')}</dd>
-            </div>
-            <div>
-              <dt>Source</dt>
-              <dd>{String(analysisSession.metadata.source_name ?? 'NA')}</dd>
-            </div>
-            <div>
-              <dt>Tracking model</dt>
-              <dd>{String(analysisSession.metadata.tracking_model ?? 'NA')}</dd>
-            </div>
-          </dl>
-          <p className="field-helper">{analysisSession.paths.sessionFolder}</p>
         </div>
       </div>
     </section>

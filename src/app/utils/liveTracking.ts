@@ -35,11 +35,16 @@ const RIGHT_IRIS = [473, 474, 475, 476, 477];
 
 let sharedTrackerPromise: Promise<FaceLandmarker> | null = null;
 
+const resolveAssetUrl = (relativePath: string): string => {
+  const base = typeof document !== 'undefined' ? document.baseURI : window.location.href;
+  return new URL(relativePath, base).toString();
+};
+
 const createTracker = async (): Promise<FaceLandmarker> => {
-  const fileset = await FilesetResolver.forVisionTasks('/mediapipe/wasm');
+  const fileset = await FilesetResolver.forVisionTasks(resolveAssetUrl('./mediapipe/wasm'));
   return FaceLandmarker.createFromOptions(fileset, {
     baseOptions: {
-      modelAssetPath: '/models/face_landmarker.task',
+      modelAssetPath: resolveAssetUrl('./models/face_landmarker.task'),
       delegate: 'GPU'
     },
     runningMode: 'VIDEO',
