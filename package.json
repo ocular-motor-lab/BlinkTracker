@@ -1,0 +1,95 @@
+{
+  "name": "blink-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "author": "OMlab",
+  "description": "Desktop MVP for local eyelid movement recording and analysis.",
+  "main": "dist-electron/electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:renderer\" \"npm:dev:electron:ts\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron:ts": "tsc -p tsconfig.node.json --watch",
+    "dev:electron": "wait-on tcp:5173 dist-electron/electron/main.js && electron dist-electron/electron/main.js",
+    "build": "tsc -b && vite build && tsc -p tsconfig.node.json",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip",
+    "dist:mac:dir": "npm run build && electron-builder --mac dir",
+    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.34",
+    "plotly.js-dist-min": "^3.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.13.13",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.2",
+    "vitest": "^3.0.9",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "edu.berkeley.omlab.blinktracker",
+    "productName": "BlinkTracker",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/.venv/**",
+          "!**/__pycache__/**",
+          "!**/.pytest_cache/**"
+        ]
+      },
+      {
+        "from": "shared",
+        "to": "shared"
+      }
+    ],
+    "directories": {
+      "buildResources": "public"
+    },
+    "mac": {
+      "category": "public.app-category.medical",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

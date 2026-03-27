@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-electron
+coverage
+.vite
+*.tsbuildinfo
+.pytest_cache
+__pycache__
+*.pyc
+.DS_Store
+backend/.venv
+sessions

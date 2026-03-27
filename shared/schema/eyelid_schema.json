@@ -1,0 +1,84 @@
+{
+  "framewiseBaseColumns": [
+    "session_id",
+    "source_type",
+    "source_name",
+    "frame_index",
+    "timestamp_sec",
+    "timestamp_iso",
+    "nominal_fps",
+    "dt_sec",
+    "left_opening_px",
+    "right_opening_px",
+    "left_opening_percent",
+    "right_opening_percent",
+    "left_closed_touching",
+    "right_closed_touching",
+    "left_closed_touching_confidence",
+    "right_closed_touching_confidence",
+    "left_tracking_confidence",
+    "right_tracking_confidence",
+    "left_visible",
+    "right_visible",
+    "blink_yes_no",
+    "left_blink",
+    "right_blink",
+    "bilateral_blink"
+  ],
+  "blinkColumns": [
+    "blink_yes_no",
+    "left_blink",
+    "right_blink",
+    "bilateral_blink"
+  ],
+  "blinkCsvColumns": [
+    "session_id",
+    "blink_id",
+    "eye_side",
+    "start_frame",
+    "start_time_sec",
+    "peak_frame",
+    "peak_time_sec",
+    "end_frame",
+    "end_time_sec",
+    "duration_sec",
+    "closing_duration_sec",
+    "opening_duration_sec",
+    "min_opening_px",
+    "min_opening_percent",
+    "peak_closure_percent",
+    "is_auto_detected",
+    "is_manually_edited",
+    "is_deleted",
+    "quality_flag",
+    "notes"
+  ],
+  "landmarkStructure": {
+    "left": {
+      "upper_lid_points": 5,
+      "lower_lid_points": 5,
+      "singletons": ["medial_canthus", "lateral_canthus", "center_reference"]
+    },
+    "right": {
+      "upper_lid_points": 5,
+      "lower_lid_points": 5,
+      "singletons": ["medial_canthus", "lateral_canthus", "center_reference"]
+    }
+  },
+  "metadataKeys": [
+    "session_id",
+    "app_version",
+    "pipeline_version",
+    "source_type",
+    "source_name",
+    "resolution_width",
+    "resolution_height",
+    "nominal_fps",
+    "session_created_at",
+    "save_raw_video",
+    "tracking_model",
+    "opening_reference_method",
+    "settings"
+  ]
+}
+
