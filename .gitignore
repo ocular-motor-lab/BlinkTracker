@@ -9,4 +9,8 @@ __pycache__
 *.pyc
 .DS_Store
 backend/.venv
+backend/.cache
+backend/build
+backend/dist
+backend/*.spec
 sessions

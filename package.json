@@ -7,15 +7,18 @@
   "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
+    "backend:install": "node scripts/install-backend.mjs",
+    "backend:build": "node scripts/build-backend.mjs",
     "dev": "concurrently \"npm:dev:renderer\" \"npm:dev:electron:ts\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron:ts": "tsc -p tsconfig.node.json --watch",
     "dev:electron": "wait-on tcp:5173 dist-electron/electron/main.js && electron dist-electron/electron/main.js",
     "build": "tsc -b && vite build && tsc -p tsconfig.node.json",
-    "dist": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip",
-    "dist:mac:dir": "npm run build && electron-builder --mac dir",
-    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "dist": "npm run backend:build && npm run build && electron-builder",
+    "dist:mac": "npm run backend:build && npm run build && electron-builder --mac dmg zip",
+    "dist:mac:dir": "npm run backend:build && npm run build && electron-builder --mac dir",
+    "dist:win": "npm run backend:build && npm run build && electron-builder --win nsis portable",
+    "dist:linux": "npm run backend:build && npm run build && electron-builder --linux AppImage deb",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -62,8 +65,17 @@
         "filter": [
           "**/*",
           "!**/.venv/**",
+          "!**/build/**",
+          "!**/dist/**",
           "!**/__pycache__/**",
           "!**/.pytest_cache/**"
+        ]
+      },
+      {
+        "from": "backend/dist",
+        "to": "backend-dist",
+        "filter": [
+          "**/*"
         ]
       },
       {
@@ -86,6 +98,13 @@
         "nsis",
         "portable"
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Science"
     },
     "nsis": {
       "oneClick": false,

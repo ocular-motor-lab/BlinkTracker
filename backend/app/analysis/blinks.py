@@ -210,41 +210,46 @@ def _detect_eye_blinks(frame: pd.DataFrame, side: Literal["left", "right"], sess
     smoothed = opening.rolling(window=AUTO_SMOOTH_WINDOW, center=True, min_periods=1).median()
     baseline = smoothed.rolling(window=AUTO_BASELINE_WINDOW, center=True, min_periods=1).quantile(0.85)
     dip = baseline - smoothed
+    raw_dip = baseline - opening
     timestamps = pd.to_numeric(frame["timestamp_sec"], errors="coerce")
     events: list[BlinkEvent] = []
     counter = 1
     index = 1
 
     while index < len(frame) - 1:
+        raw_opening = opening.iloc[index]
         current_opening = smoothed.iloc[index]
         current_baseline = baseline.iloc[index]
-        if pd.isna(current_opening) or pd.isna(current_baseline):
+        if pd.isna(raw_opening) or pd.isna(current_opening) or pd.isna(current_baseline):
             index += 1
             continue
         current_dip = dip.iloc[index]
-        if pd.isna(current_dip):
+        current_raw_dip = raw_dip.iloc[index]
+        if pd.isna(current_dip) or pd.isna(current_raw_dip):
             index += 1
             continue
         seed_threshold = min(
             AUTO_RELAXED_CLOSED_PERCENT,
             max(AUTO_DEEP_CLOSED_PERCENT, float(current_baseline) * 0.38),
         )
-        is_deep_valley = float(current_opening) <= AUTO_DEEP_CLOSED_PERCENT
+        seed_opening = min(float(raw_opening), float(current_opening))
+        seed_dip = max(float(current_raw_dip), float(current_dip))
+        is_deep_valley = seed_opening <= AUTO_DEEP_CLOSED_PERCENT
         is_relative_valley = (
-            float(current_opening) <= seed_threshold
-            and float(current_dip) >= AUTO_DIP_PROMINENCE
+            seed_opening <= seed_threshold
+            and seed_dip >= AUTO_DIP_PROMINENCE
             and float(current_baseline) >= AUTO_MIN_BASELINE_PERCENT
         )
         if not (is_deep_valley or is_relative_valley):
             index += 1
             continue
 
-        left_value = smoothed.iloc[index - 1]
-        right_value = smoothed.iloc[index + 1]
+        left_value = opening.iloc[index - 1]
+        right_value = opening.iloc[index + 1]
         if pd.isna(left_value) or pd.isna(right_value):
             index += 1
             continue
-        if not (float(current_opening) <= float(left_value) and float(current_opening) <= float(right_value)):
+        if not (float(raw_opening) <= float(left_value) and float(raw_opening) <= float(right_value)):
             index += 1
             continue
         center_time = float(timestamps.iloc[index])

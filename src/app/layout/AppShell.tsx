@@ -4,6 +4,7 @@ import { SessionPage } from '@app/pages/SessionPage';
 import { AcquirePage } from '@app/pages/AcquirePage';
 import { AnalysisPage } from '@app/pages/AnalysisPage';
 import { ExportPage } from '@app/pages/ExportPage';
+import { SettingsPage } from '@app/pages/SettingsPage';
 import { PlaceholderPage } from '@app/pages/PlaceholderPage';
 
 const PAGE_TITLES: Record<string, string> = {
@@ -12,14 +13,6 @@ const PAGE_TITLES: Record<string, string> = {
   analysis: 'Analysis',
   export: 'Export',
   settings: 'Settings'
-};
-
-const PAGE_MILESTONES: Record<string, string> = {
-  session: 'Milestone 1',
-  acquire: 'Milestone 4',
-  analysis: 'Milestone 5',
-  export: 'Milestone 6',
-  settings: 'Milestone 6'
 };
 
 export const AppShell = (): JSX.Element => {
@@ -54,7 +47,6 @@ export const AppShell = (): JSX.Element => {
       <main className="main-panel">
         <header className="page-header">
           <div>
-            <p className="eyebrow">{PAGE_MILESTONES[activeTab]}</p>
             <h2>{PAGE_TITLES[activeTab]}</h2>
           </div>
         </header>
@@ -66,6 +58,8 @@ export const AppShell = (): JSX.Element => {
           <AnalysisPage />
         ) : activeTab === 'export' ? (
           <ExportPage />
+        ) : activeTab === 'settings' ? (
+          <SettingsPage />
         ) : (
           <PlaceholderPage tab={activeTab} />
         )}

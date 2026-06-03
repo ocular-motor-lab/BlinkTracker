@@ -1,6 +1,6 @@
 import type { AppTab } from '@ipc/schemas';
 
-const COPY: Record<Exclude<AppTab, 'session'>, { title: string; detail: string }> = {
+const COPY: Record<Exclude<AppTab, 'session' | 'settings'>, { title: string; detail: string }> = {
   acquire: {
     title: 'Acquisition pipeline scaffolded',
     detail: 'Milestone 2 will attach live preview, timestamps, and backend frame processing here.'
@@ -12,14 +12,10 @@ const COPY: Record<Exclude<AppTab, 'session'>, { title: string; detail: string }
   export: {
     title: 'Export panel placeholder',
     detail: 'Final CSV and metadata export actions will appear here once processing outputs exist.'
-  },
-  settings: {
-    title: 'Settings scaffold',
-    detail: 'Thresholds, smoothing defaults, and trace preferences will be added in later milestones.'
   }
 };
 
-export const PlaceholderPage = ({ tab }: { tab: Exclude<AppTab, 'session'> }): JSX.Element => {
+export const PlaceholderPage = ({ tab }: { tab: Exclude<AppTab, 'session' | 'settings'> }): JSX.Element => {
   const copy = COPY[tab];
   return (
     <section className="placeholder-card">
@@ -28,4 +24,3 @@ export const PlaceholderPage = ({ tab }: { tab: Exclude<AppTab, 'session'> }): J
     </section>
   );
 };
-

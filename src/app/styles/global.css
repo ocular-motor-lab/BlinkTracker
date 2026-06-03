@@ -136,6 +136,20 @@ button {
   gap: 18px;
 }
 
+.settings-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-value {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .acquire-side {
   display: grid;
   gap: 20px;

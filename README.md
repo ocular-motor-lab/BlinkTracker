@@ -20,6 +20,35 @@ Desktop MVP for local recording and analysis of bilateral eyelid movements from 
 - `ipc/` typed Electron IPC contracts
 - `backend/` Python processing backend
 
+## Development
+
+Install Node dependencies, then create the local Python backend environment:
+
+```bash
+npm install
+npm run backend:install
+```
+
+Start the Electron app in development mode:
+
+```bash
+npm run dev
+```
+
+The Electron bridge uses `BLINK_TRACKER_PYTHON` when set. Otherwise it looks for `backend/.venv` and falls back to the system Python (`python3` on macOS/Linux, `python` on Windows).
+
+## Packaging
+
+Packaged apps use a bundled backend executable built with PyInstaller. Build the package on the target operating system so native Python wheels and camera libraries match that platform.
+
+```bash
+npm run dist:mac
+npm run dist:win
+npm run dist:linux
+```
+
+The packaging scripts run `npm run backend:build` first, which creates `backend/dist/blink-tracker-backend` or `backend/dist/blink-tracker-backend.exe`. Electron Builder copies that executable into app resources as `backend-dist/`.
+
 ## Milestone 1 status
 
 - Session shell and navigation scaffolded

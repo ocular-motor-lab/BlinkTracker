@@ -10,29 +10,121 @@ const isPackaged = app.isPackaged;
 const repoRoot = isPackaged ? process.resourcesPath : path.resolve(__dirname, '..', '..');
 const backendRoot = isPackaged ? path.join(process.resourcesPath, 'backend') : path.join(repoRoot, 'backend');
 const sharedRoot = isPackaged ? path.join(process.resourcesPath, 'shared') : path.join(repoRoot, 'shared');
-const venvPython = isPackaged
-  ? path.join(process.resourcesPath, 'python', 'bin', 'python3')
-  : path.join(backendRoot, '.venv', 'bin', 'python');
+const bundledBackendRoot = isPackaged ? path.join(process.resourcesPath, 'backend-dist') : path.join(backendRoot, 'dist');
 let workerProcess: ReturnType<typeof spawn> | null = null;
 let workerRequestId = 0;
 const workerPending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
-const resolvePythonExecutable = (): string => {
+type BackendLaunch =
+  | {
+      kind: 'executable';
+      command: string;
+      baseArgs: string[];
+    }
+  | {
+      kind: 'python';
+      command: string;
+      baseArgs: string[];
+    };
+
+const isExecutableFile = (candidate: string): boolean => {
+  try {
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+};
+
+const resolveVenvPython = (): string | null => {
+  const binRoot = isPackaged ? path.join(process.resourcesPath, 'python', 'bin') : path.join(backendRoot, '.venv', 'bin');
+  const preferred = process.platform === 'win32' ? ['python.exe', 'python'] : ['python3.12', 'python3.11', 'python3', 'python'];
+
+  for (const executable of preferred) {
+    const candidate = path.join(binRoot, executable);
+    if (isExecutableFile(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const resolveBundledBackendExecutable = (): string | null => {
+  if (!isPackaged) {
+    return null;
+  }
+
+  const executable = process.platform === 'win32' ? 'blink-tracker-backend.exe' : 'blink-tracker-backend';
+  const candidates = [
+    path.join(bundledBackendRoot, 'blink-tracker-backend', executable),
+    path.join(bundledBackendRoot, executable)
+  ];
+
+  for (const candidate of candidates) {
+    if (isExecutableFile(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const resolveBackendLaunch = (): BackendLaunch => {
+  const bundledBackend = resolveBundledBackendExecutable();
+  if (bundledBackend) {
+    return {
+      kind: 'executable',
+      command: bundledBackend,
+      baseArgs: []
+    };
+  }
+
   if (process.env.BLINK_TRACKER_PYTHON) {
-    return process.env.BLINK_TRACKER_PYTHON;
+    return {
+      kind: 'python',
+      command: process.env.BLINK_TRACKER_PYTHON,
+      baseArgs: ['-m', 'app.runner']
+    };
   }
 
-  if (fs.existsSync(venvPython)) {
-    return venvPython;
+  const venvPython = resolveVenvPython();
+  if (venvPython) {
+    return {
+      kind: 'python',
+      command: venvPython,
+      baseArgs: ['-m', 'app.runner']
+    };
   }
 
-  return process.platform === 'win32' ? 'python' : 'python3';
+  return {
+    kind: 'python',
+    command: process.platform === 'win32' ? 'python' : 'python3',
+    baseArgs: ['-m', 'app.runner']
+  };
+};
+
+const buildCommandArgs = (launch: BackendLaunch, command: string): string[] => {
+  if (launch.kind === 'executable') {
+    return ['command', command];
+  }
+
+  return [...launch.baseArgs, 'command', command];
+};
+
+const buildWorkerArgs = (launch: BackendLaunch): string[] => {
+  if (launch.kind === 'executable') {
+    return ['worker'];
+  }
+
+  return [...launch.baseArgs, 'worker'];
 };
 
 const runPythonCommand = <T>(command: string, payload?: unknown): Promise<T> =>
   new Promise((resolve, reject) => {
-    const args = ['-m', 'app.main', command];
-    const process = spawn(resolvePythonExecutable(), args, {
+    const launch = resolveBackendLaunch();
+    const args = buildCommandArgs(launch, command);
+    const process = spawn(launch.command, args, {
       cwd: backendRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
@@ -76,7 +168,8 @@ const ensureWorker = () => {
     return workerProcess;
   }
 
-  const child = spawn(resolvePythonExecutable(), ['-m', 'app.worker'], {
+  const launch = resolveBackendLaunch();
+  const child = spawn(launch.command, buildWorkerArgs(launch), {
     cwd: backendRoot,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {

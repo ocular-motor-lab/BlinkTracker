@@ -84,7 +84,7 @@ export const SessionPage = (): JSX.Element => {
             <h3>Create a recording session</h3>
           </div>
           <p className="section-copy">
-            Start with the source, output destination, and metadata stub required by later acquisition milestones.
+            Choose the source, output destination, and metadata that will define the session bundle.
           </p>
         </div>
 
@@ -241,10 +241,10 @@ export const SessionPage = (): JSX.Element => {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Session Bundle</p>
-            <h3>Milestone 1 outputs</h3>
+            <h3>Session bundle outputs</h3>
           </div>
           <p className="section-copy">
-            The app writes the metadata stub and initializes the files needed by later tracking and analysis milestones.
+            The app creates the session folder and initializes the files used during acquisition, analysis, and export.
           </p>
         </div>
 

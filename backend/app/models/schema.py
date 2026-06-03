@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_JSON_PATH = REPO_ROOT / "shared" / "schema" / "eyelid_schema.json"
-SPEC_PATHS_JSON_PATH = REPO_ROOT / "shared" / "config" / "spec_paths.json"
+RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", REPO_ROOT))
+SCHEMA_JSON_PATH = RESOURCE_ROOT / "shared" / "schema" / "eyelid_schema.json"
+SPEC_PATHS_JSON_PATH = RESOURCE_ROOT / "shared" / "config" / "spec_paths.json"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
