@@ -1,17 +1,17 @@
 :root {
-  color-scheme: dark;
-  --bg: #0b1320;
-  --panel: rgba(17, 24, 39, 0.86);
-  --panel-strong: #111827;
-  --panel-soft: #162033;
-  --text: #eef2ff;
-  --muted: #9aa7bd;
-  --accent: #f59e0b;
-  --accent-soft: rgba(245, 158, 11, 0.18);
-  --success: #34d399;
-  --error: #fb7185;
-  --border: rgba(148, 163, 184, 0.18);
-  --shadow: 0 28px 80px rgba(3, 7, 18, 0.45);
+  color-scheme: light;
+  --bg: #f8fbff;
+  --panel: rgba(255, 255, 255, 0.84);
+  --panel-strong: #ffffff;
+  --panel-soft: #eef8ff;
+  --text: #17324d;
+  --muted: #60758a;
+  --accent: #ff7a59;
+  --accent-soft: rgba(255, 122, 89, 0.16);
+  --success: #1fbf8f;
+  --error: #e94f64;
+  --border: rgba(89, 137, 171, 0.24);
+  --shadow: 0 24px 64px rgba(56, 103, 138, 0.16);
   font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
 }
 
@@ -28,9 +28,9 @@ body,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.16), transparent 30%),
-    linear-gradient(180deg, #08111d 0%, #0f172a 100%);
+    radial-gradient(circle at top left, rgba(255, 214, 102, 0.42), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(96, 211, 196, 0.36), transparent 30%),
+    linear-gradient(180deg, #f9fcff 0%, #e7f7ff 100%);
   color: var(--text);
 }
 
@@ -58,7 +58,7 @@ button {
   gap: 28px;
   padding: 28px;
   border-right: 1px solid var(--border);
-  background: rgba(9, 14, 26, 0.86);
+  background: rgba(255, 255, 255, 0.74);
   backdrop-filter: blur(24px);
 }
 
@@ -107,7 +107,7 @@ button {
 .nav-item:hover,
 .nav-item.active {
   background: var(--accent-soft);
-  border-color: rgba(245, 158, 11, 0.32);
+  border-color: rgba(255, 122, 89, 0.34);
 }
 
 .main-panel {
@@ -232,13 +232,13 @@ textarea {
   border-radius: 14px;
   padding: 12px 16px;
   color: var(--text);
-  background: rgba(30, 41, 59, 0.9);
+  background: rgba(239, 248, 255, 0.92);
 }
 
 .toggle-row button.selected,
 .primary-button {
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: #1f1301;
+  background: linear-gradient(135deg, #ffb45f, #ff7a59);
+  color: #3f190f;
   font-weight: 700;
 }
 
@@ -257,18 +257,18 @@ textarea {
 }
 
 .status-banner.error {
-  background: rgba(244, 63, 94, 0.14);
-  color: #fecdd3;
+  background: rgba(233, 79, 100, 0.12);
+  color: #9f2438;
 }
 
 .status-banner.success {
-  background: rgba(52, 211, 153, 0.14);
-  color: #bbf7d0;
+  background: rgba(31, 191, 143, 0.14);
+  color: #0f7357;
 }
 
 .status-banner.info {
-  background: rgba(56, 189, 248, 0.14);
-  color: #dbeafe;
+  background: rgba(59, 163, 219, 0.14);
+  color: #1f6389;
 }
 
 .summary-list {
@@ -307,8 +307,8 @@ textarea {
   bottom: 18px;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 122, 89, 0.28);
   color: var(--text);
   font-size: 0.88rem;
 }
@@ -332,12 +332,12 @@ textarea {
 
 .landmark-dot.left_upper,
 .landmark-dot.right_upper {
-  background: #f59e0b;
+  background: #ff7a59;
 }
 
 .landmark-dot.left_lower,
 .landmark-dot.right_lower {
-  background: #38bdf8;
+  background: #2fb7c9;
 }
 
 .capture-canvas {
@@ -370,7 +370,7 @@ textarea {
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: rgba(8, 17, 29, 0.45);
+  background: rgba(255, 255, 255, 0.48);
 }
 
 .analysis-plot {
@@ -431,12 +431,12 @@ textarea {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(8, 17, 29, 0.45);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .blink-editor-row.is-selected {
-  border-color: rgba(248, 250, 252, 0.82);
-  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.2);
+  border-color: rgba(255, 122, 89, 0.82);
+  box-shadow: 0 0 0 1px rgba(255, 122, 89, 0.2);
 }
 
 .blink-editor-row.is-deleted {
@@ -475,7 +475,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 18px;
   overflow: hidden;
-  background: rgba(8, 17, 29, 0.55);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .analysis-plot-shell {
@@ -527,7 +527,7 @@ textarea {
   align-items: center;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(255, 255, 255, 0.68);
   border: 1px solid var(--border);
 }
 
@@ -535,7 +535,7 @@ textarea {
   margin-top: 24px;
   padding: 18px;
   border-radius: 18px;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(255, 255, 255, 0.68);
 }
 
 .session-paths h4 {
