@@ -8,9 +8,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const backendRoot = path.join(repoRoot, 'backend');
-const cacheRoot = path.join(backendRoot, '.cache');
 const distRoot = path.join(backendRoot, 'dist');
-const buildRoot = path.join(backendRoot, 'build');
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'blink-tracker-backend-'));
+const cacheRoot = path.join(tempRoot, 'cache');
+const buildRoot = path.join(tempRoot, 'build');
+const tempDistRoot = path.join(tempRoot, 'dist');
 const pyinstallerDataSeparator = os.platform() === 'win32' ? ';' : ':';
 
 const executableExists = (candidate) => {
@@ -46,8 +48,9 @@ const findPython = () => {
 };
 
 const python = findPython();
-fs.rmSync(distRoot, { recursive: true, force: true });
-fs.rmSync(buildRoot, { recursive: true, force: true });
+const cleanupTempRoot = () => {
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+};
 
 const pyinstallerArgs = [
   ...python.args,
@@ -57,9 +60,11 @@ const pyinstallerArgs = [
   '--name',
   'blink-tracker-backend',
   '--distpath',
-  distRoot,
+  tempDistRoot,
   '--workpath',
   buildRoot,
+  '--specpath',
+  tempRoot,
   '--add-data',
   `${path.join(repoRoot, 'shared')}${pyinstallerDataSeparator}shared`,
   path.join(backendRoot, 'app', 'runner.py')
@@ -80,5 +85,13 @@ if (result.status !== 0) {
   console.error('\nFailed to build the backend executable.');
   console.error('Run `npm run backend:install` first, or install PyInstaller with:');
   console.error('  python -m pip install -r backend/requirements-build.txt');
+  cleanupTempRoot();
   process.exit(result.status ?? 1);
 }
+
+fs.mkdirSync(distRoot, { recursive: true });
+fs.cpSync(path.join(tempDistRoot, 'blink-tracker-backend'), path.join(distRoot, 'blink-tracker-backend'), {
+  recursive: true,
+  force: true
+});
+cleanupTempRoot();

@@ -1,21 +1,18 @@
 import type { AppTab } from '@ipc/schemas';
 
-const COPY: Record<Exclude<AppTab, 'session' | 'settings'>, { title: string; detail: string }> = {
-  acquire: {
-    title: 'Acquisition pipeline scaffolded',
-    detail: 'Milestone 2 will attach live preview, timestamps, and backend frame processing here.'
-  },
-  analysis: {
-    title: 'Analysis workspace reserved',
-    detail: 'Milestones 5 and 6 will add synchronized video, traces, blink detection, and manual editing.'
-  },
+type PlaceholderTab = Exclude<
+  AppTab,
+  'preSession' | 'session' | 'acquire' | 'postSession' | 'database' | 'analysis' | 'compare' | 'settings'
+>;
+
+const COPY: Record<PlaceholderTab, { title: string; detail: string }> = {
   export: {
     title: 'Export panel placeholder',
     detail: 'Final CSV and metadata export actions will appear here once processing outputs exist.'
   }
 };
 
-export const PlaceholderPage = ({ tab }: { tab: Exclude<AppTab, 'session' | 'settings'> }): JSX.Element => {
+export const PlaceholderPage = ({ tab }: { tab: PlaceholderTab }): JSX.Element => {
   const copy = COPY[tab];
   return (
     <section className="placeholder-card">

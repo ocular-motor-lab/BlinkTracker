@@ -1,11 +1,42 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 try:
     import cv2  # type: ignore
 except Exception:  # pragma: no cover
     cv2 = None
+
+MAX_REASONABLE_FPS = 300.0
+MAX_REASONABLE_FRAME_COUNT = 100_000_000
+
+
+def _sanitize_fps(value: float) -> float:
+    if value <= 0 or value > MAX_REASONABLE_FPS:
+        return 0.0
+    return value
+
+
+def _sanitize_frame_count(value: int) -> int:
+    if value <= 0 or value > MAX_REASONABLE_FRAME_COUNT:
+        return 0
+    return value
+
+
+def _count_decoded_frames(capture: Any) -> tuple[int, float]:
+    count = 0
+    last_timestamp_sec = 0.0
+    capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    while True:
+        ok, _frame = capture.read()
+        if not ok:
+            break
+        count += 1
+        position_msec = float(capture.get(cv2.CAP_PROP_POS_MSEC) or 0.0)
+        if position_msec > 0:
+            last_timestamp_sec = max(last_timestamp_sec, position_msec / 1000)
+    return count, last_timestamp_sec
 
 
 def probe_video(path: str) -> dict[str, float | int | str]:
@@ -19,11 +50,19 @@ def probe_video(path: str) -> dict[str, float | int | str]:
 
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-    fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
-    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    raw_fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+    raw_frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    fps = _sanitize_fps(raw_fps)
+    frame_count = _sanitize_frame_count(raw_frame_count)
+    decoded_duration_sec = 0.0
+    if fps == 0.0 or frame_count == 0:
+        decoded_count, decoded_duration_sec = _count_decoded_frames(capture)
+        frame_count = _sanitize_frame_count(decoded_count)
+        if fps == 0.0 and decoded_duration_sec > 0 and frame_count > 1:
+            fps = _sanitize_fps((frame_count - 1) / decoded_duration_sec)
     capture.release()
 
-    duration_sec = frame_count / fps if fps > 0 else 0.0
+    duration_sec = decoded_duration_sec if decoded_duration_sec > 0 else (frame_count / fps if fps > 0 else 0.0)
 
     return {
         "path": str(source_path),
@@ -34,4 +73,3 @@ def probe_video(path: str) -> dict[str, float | int | str]:
         "frameCount": frame_count,
         "durationSec": duration_sec,
     }
-

@@ -20,6 +20,9 @@
     "right_tracking_confidence",
     "left_visible",
     "right_visible",
+    "gaze_direction",
+    "gaze_horizontal_ratio",
+    "gaze_vertical_ratio",
     "blink_yes_no",
     "left_blink",
     "right_blink",
@@ -47,6 +50,7 @@
     "min_opening_px",
     "min_opening_percent",
     "peak_closure_percent",
+    "blink_classification",
     "is_auto_detected",
     "is_manually_edited",
     "is_deleted",
@@ -81,4 +85,3 @@
     "settings"
   ]
 }
-

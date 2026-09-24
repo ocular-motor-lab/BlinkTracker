@@ -34,6 +34,40 @@ def _percent_opening(opening_px: float | None, current_reference: float) -> floa
     return float(max(0.0, (opening_px / current_reference) * 100.0))
 
 
+def _ratio_between(start: float, end: float, value: float) -> float | None:
+    span = end - start
+    if abs(span) < 0.001:
+        return None
+    return float(max(0.0, min(1.0, (value - start) / span)))
+
+
+def _average_present(values: list[float | None]) -> float | None:
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return float(sum(present) / len(present))
+
+
+def _gaze_metrics(left_eye: Any, right_eye: Any) -> tuple[str, float | None, float | None]:
+    left_x = _ratio_between(left_eye.lateral_canthus[0], left_eye.medial_canthus[0], left_eye.center_reference[0])
+    right_x = _ratio_between(right_eye.medial_canthus[0], right_eye.lateral_canthus[0], right_eye.center_reference[0])
+    left_upper_y = float(np.mean([point[1] for point in left_eye.upper_lid[1:4]]))
+    left_lower_y = float(np.mean([point[1] for point in left_eye.lower_lid[1:4]]))
+    right_upper_y = float(np.mean([point[1] for point in right_eye.upper_lid[1:4]]))
+    right_lower_y = float(np.mean([point[1] for point in right_eye.lower_lid[1:4]]))
+    horizontal_ratio = _average_present([left_x, right_x])
+    vertical_ratio = _average_present(
+        [
+            _ratio_between(left_upper_y, left_lower_y, left_eye.center_reference[1]),
+            _ratio_between(right_upper_y, right_lower_y, right_eye.center_reference[1]),
+        ]
+    )
+    horizontal = "" if horizontal_ratio is None else "left" if horizontal_ratio < 0.42 else "right" if horizontal_ratio > 0.58 else ""
+    vertical = "" if vertical_ratio is None else "up" if vertical_ratio < 0.4 else "down" if vertical_ratio > 0.6 else ""
+    direction = "-".join(part for part in (vertical, horizontal) if part) or "center"
+    return direction, horizontal_ratio, vertical_ratio
+
+
 def compute_frame_metrics(tracking_result: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     if not tracking_result["detected"]:
         return {
@@ -50,6 +84,9 @@ def compute_frame_metrics(tracking_result: dict[str, Any], state: dict[str, Any]
             "right_tracking_confidence": 0.0,
             "left_visible": 0,
             "right_visible": 0,
+            "gaze_direction": "unknown",
+            "gaze_horizontal_ratio": None,
+            "gaze_vertical_ratio": None,
             "landmarks": {},
             "landmark_preview": [],
         }
@@ -74,6 +111,9 @@ def compute_frame_metrics(tracking_result: dict[str, Any], state: dict[str, Any]
     tracking_status = "tracked"
     if left_confidence < 0.45 or right_confidence < 0.45:
         tracking_status = "low_confidence"
+    gaze_direction, gaze_horizontal_ratio, gaze_vertical_ratio = (
+        _gaze_metrics(left_eye, right_eye) if tracking_status == "tracked" else ("unknown", None, None)
+    )
 
     preview = []
     for kind, points in (
@@ -99,6 +139,9 @@ def compute_frame_metrics(tracking_result: dict[str, Any], state: dict[str, Any]
         "right_tracking_confidence": right_confidence,
         "left_visible": 1,
         "right_visible": 1,
+        "gaze_direction": gaze_direction,
+        "gaze_horizontal_ratio": gaze_horizontal_ratio,
+        "gaze_vertical_ratio": gaze_vertical_ratio,
         "landmarks": {
             "left": left_eye,
             "right": right_eye,

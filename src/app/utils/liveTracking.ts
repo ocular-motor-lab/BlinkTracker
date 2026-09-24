@@ -3,6 +3,7 @@ import { DEFAULT_BLINK_COLUMNS, LANDMARK_COLUMNS, type SourceType } from '@share
 import type { FrameProbeResponse } from '@ipc/schemas';
 
 type LandmarkPoint = { x: number; y: number };
+type TrackingAlertReason = NonNullable<FrameProbeResponse['trackingAlertReason']>;
 
 type EyeMetrics = {
   upper: LandmarkPoint[];
@@ -20,6 +21,14 @@ type TrackingState = {
   leftReferenceMax: number;
   rightReferenceMax: number;
   previousTimestampSec: number | null;
+  previousFaceCenter: LandmarkPoint | null;
+  previousFaceTimestampSec: number | null;
+};
+
+type GazeMetrics = {
+  direction: string;
+  horizontalRatio: number | null;
+  verticalRatio: number | null;
 };
 
 const LEFT_UPPER = [33, 160, 159, 158, 133];
@@ -152,10 +161,110 @@ const landmarkColumnsFromMetrics = (
   return row;
 };
 
-export const createTrackingState = (): TrackingState => ({
-  leftReferenceMax: 0,
-  rightReferenceMax: 0,
-  previousTimestampSec: null
+const clampRatio = (value: number): number => Math.max(0, Math.min(1, value));
+
+const ratioBetween = (start: number, end: number, value: number): number | null => {
+  const span = end - start;
+  if (Math.abs(span) < 0.001) {
+    return null;
+  }
+  return clampRatio((value - start) / span);
+};
+
+const averageNullable = (values: Array<number | null>): number | null => {
+  const present = values.filter((value): value is number => value != null);
+  if (!present.length) {
+    return null;
+  }
+  return present.reduce((total, value) => total + value, 0) / present.length;
+};
+
+const trackingWarningForReason = (reason: TrackingAlertReason): string => {
+  switch (reason) {
+    case 'no_face':
+      return 'No face detected in this frame.';
+    case 'low_confidence':
+      return 'Tracking confidence is limited for this frame.';
+    case 'out_of_frame':
+      return 'Face landmarks are close to the edge of the frame.';
+    case 'too_far':
+      return 'The subject appears too far away for reliable landmarks.';
+    case 'moving_too_much':
+      return 'The subject is moving too much for stable landmark tracking.';
+  }
+};
+
+const faceQualityReason = (
+  landmarks: LandmarkPoint[],
+  state: TrackingState,
+  timestampSec: number
+): TrackingAlertReason | null => {
+  const xValues = landmarks.map((point) => point.x);
+  const yValues = landmarks.map((point) => point.y);
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+  const widthRatio = maxX - minX;
+  const heightRatio = maxY - minY;
+  const center = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2
+  };
+  const previousCenter = state.previousFaceCenter;
+  const previousTimestamp = state.previousFaceTimestampSec;
+
+  state.previousFaceCenter = center;
+  state.previousFaceTimestampSec = timestampSec;
+
+  if (minX < 0.03 || maxX > 0.97 || minY < 0.03 || maxY > 0.97) {
+    return 'out_of_frame';
+  }
+
+  if (widthRatio < 0.22 || heightRatio < 0.26) {
+    return 'too_far';
+  }
+
+  if (previousCenter && previousTimestamp != null) {
+    const dtSec = Math.max(0, timestampSec - previousTimestamp);
+    const movement = Math.hypot(center.x - previousCenter.x, center.y - previousCenter.y);
+    if (dtSec > 0 && dtSec < 0.5 && movement > 0.045 && movement / dtSec > 0.5) {
+      return 'moving_too_much';
+    }
+  }
+
+  return null;
+};
+
+const buildGazeMetrics = (leftEye: EyeMetrics, rightEye: EyeMetrics): GazeMetrics => {
+  const leftX = ratioBetween(leftEye.lateral.x, leftEye.medial.x, leftEye.center.x);
+  const rightX = ratioBetween(rightEye.medial.x, rightEye.lateral.x, rightEye.center.x);
+  const leftUpperY = leftEye.upper.slice(1, 4).reduce((sum, point) => sum + point.y, 0) / 3;
+  const leftLowerY = leftEye.lower.slice(1, 4).reduce((sum, point) => sum + point.y, 0) / 3;
+  const rightUpperY = rightEye.upper.slice(1, 4).reduce((sum, point) => sum + point.y, 0) / 3;
+  const rightLowerY = rightEye.lower.slice(1, 4).reduce((sum, point) => sum + point.y, 0) / 3;
+  const horizontalRatio = averageNullable([leftX, rightX]);
+  const verticalRatio = averageNullable([
+    ratioBetween(leftUpperY, leftLowerY, leftEye.center.y),
+    ratioBetween(rightUpperY, rightLowerY, rightEye.center.y)
+  ]);
+
+  const horizontal = horizontalRatio == null ? '' : horizontalRatio < 0.42 ? 'left' : horizontalRatio > 0.58 ? 'right' : '';
+  const vertical = verticalRatio == null ? '' : verticalRatio < 0.4 ? 'up' : verticalRatio > 0.6 ? 'down' : '';
+  const direction = [vertical, horizontal].filter(Boolean).join('-') || 'center';
+
+  return { direction, horizontalRatio, verticalRatio };
+};
+
+export const createTrackingState = (reference?: {
+  leftReferenceMax?: number | null;
+  rightReferenceMax?: number | null;
+}): TrackingState => ({
+  leftReferenceMax: reference?.leftReferenceMax ?? 0,
+  rightReferenceMax: reference?.rightReferenceMax ?? 0,
+  previousTimestampSec: null,
+  previousFaceCenter: null,
+  previousFaceTimestampSec: null
 });
 
 export const trackFrame = async (
@@ -174,6 +283,8 @@ export const trackFrame = async (
   const result = tracker.detectForVideo(source, performance.now());
 
   if (!result.faceLandmarks.length) {
+    state.previousFaceCenter = null;
+    state.previousFaceTimestampSec = null;
     const row = {
       session_id: sessionId,
       source_type: sourceType,
@@ -195,6 +306,9 @@ export const trackFrame = async (
       right_tracking_confidence: 0,
       left_visible: 0,
       right_visible: 0,
+      gaze_direction: 'unknown',
+      gaze_horizontal_ratio: '',
+      gaze_vertical_ratio: '',
       ...DEFAULT_BLINK_COLUMNS,
       ...emptyLandmarkColumns()
     };
@@ -204,6 +318,7 @@ export const trackFrame = async (
         frameIndex,
         timestampSec,
         trackingStatus: 'no_face',
+        trackingAlertReason: 'no_face',
         leftTrackingConfidence: 0,
         rightTrackingConfidence: 0,
         leftVisible: false,
@@ -212,6 +327,9 @@ export const trackFrame = async (
         rightOpeningPx: null,
         leftOpeningPercent: null,
         rightOpeningPercent: null,
+        gazeDirection: 'unknown',
+        gazeHorizontalRatio: null,
+        gazeVerticalRatio: null,
         leftClosedTouching: 0,
         rightClosedTouching: 0,
         landmarkPreview: [],
@@ -222,6 +340,7 @@ export const trackFrame = async (
   }
 
   const face = result.faceLandmarks[0] as LandmarkPoint[];
+  const qualityReason = faceQualityReason(face, state, timestampSec);
   const leftMax = state.leftReferenceMax || 0;
   const rightMax = state.rightReferenceMax || 0;
   let leftEye = buildEyeMetrics(face, width, height, LEFT_UPPER, LEFT_LOWER, LEFT_MEDIAL, LEFT_LATERAL, LEFT_IRIS, leftMax);
@@ -246,6 +365,12 @@ export const trackFrame = async (
   const rightClosed = rightEye.openingPercent !== null && rightEye.openingPercent < 20 ? 1 : 0;
   const trackingStatus =
     leftEye.confidence < 0.35 || rightEye.confidence < 0.35 ? 'low_confidence' : 'tracked';
+  const trackingAlertReason = qualityReason ?? (trackingStatus === 'low_confidence' ? 'low_confidence' : undefined);
+  const gaze = trackingStatus === 'tracked' ? buildGazeMetrics(leftEye, rightEye) : {
+    direction: 'unknown',
+    horizontalRatio: null,
+    verticalRatio: null
+  };
 
   const landmarkPreview = [
     ...leftEye.upper.map((point) => ({ ...point, kind: 'left_upper' })),
@@ -275,6 +400,9 @@ export const trackFrame = async (
     right_tracking_confidence: rightEye.confidence,
     left_visible: 1,
     right_visible: 1,
+    gaze_direction: gaze.direction,
+    gaze_horizontal_ratio: gaze.horizontalRatio ?? '',
+    gaze_vertical_ratio: gaze.verticalRatio ?? '',
     ...DEFAULT_BLINK_COLUMNS,
     ...landmarkColumnsFromMetrics(leftEye, rightEye)
   };
@@ -284,6 +412,7 @@ export const trackFrame = async (
       frameIndex,
       timestampSec,
       trackingStatus,
+      trackingAlertReason,
       leftTrackingConfidence: leftEye.confidence,
       rightTrackingConfidence: rightEye.confidence,
       leftVisible: true,
@@ -292,10 +421,13 @@ export const trackFrame = async (
       rightOpeningPx: rightEye.openingPx,
       leftOpeningPercent: leftEye.openingPercent,
       rightOpeningPercent: rightEye.openingPercent,
+      gazeDirection: gaze.direction,
+      gazeHorizontalRatio: gaze.horizontalRatio,
+      gazeVerticalRatio: gaze.verticalRatio,
       leftClosedTouching: leftClosed,
       rightClosedTouching: rightClosed,
       landmarkPreview,
-      warning: trackingStatus === 'low_confidence' ? 'Tracking confidence is limited for this frame.' : undefined
+      warning: trackingAlertReason ? trackingWarningForReason(trackingAlertReason) : undefined
     },
     row
   };

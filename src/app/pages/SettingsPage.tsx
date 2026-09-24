@@ -12,7 +12,6 @@ export const SettingsPage = (): JSX.Element => {
       <div className="card session-form-card">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Defaults</p>
             <h3>Application settings</h3>
           </div>
           <p className="section-copy">
@@ -52,14 +51,6 @@ export const SettingsPage = (): JSX.Element => {
               />
               <span>Save raw video by default for live camera sessions</span>
             </label>
-            <label className="checkbox-row">
-              <input
-                checked={preferences.defaultPreferHighResolution}
-                onChange={(event) => setPreference('defaultPreferHighResolution', event.target.checked)}
-                type="checkbox"
-              />
-              <span>Prefer highest advertised camera mode by default</span>
-            </label>
           </div>
 
           <div className="field-group">
@@ -88,7 +79,6 @@ export const SettingsPage = (): JSX.Element => {
       <div className="card session-summary-card">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Current Preferences</p>
             <h3>At a glance</h3>
           </div>
           <p className="section-copy">These values are currently active and will be applied to future session setup by default.</p>
@@ -97,7 +87,6 @@ export const SettingsPage = (): JSX.Element => {
         <ul className="summary-list">
           <li>Default source: {preferences.defaultSourceType === 'camera' ? 'Live camera' : 'Video file'}</li>
           <li>Default raw video saving: {preferences.defaultSaveRawVideo ? 'On' : 'Off'}</li>
-          <li>Default high-resolution preference: {preferences.defaultPreferHighResolution ? 'On' : 'Off'}</li>
           <li>Remembered output folder: {sessionForm.outputFolder || 'None stored'}</li>
         </ul>
       </div>

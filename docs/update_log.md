@@ -1,0 +1,273 @@
+# BlinkTracker Update Log
+
+This is a simple record of the updates made to BlinkTracker, beginning with the original hamburger-menu request.
+
+## Navigation and Branding
+
+- Replaced the always-open left navigation with a collapsible sidebar.
+- Added icons for Session, Recording, Analysis, and Export.
+- Adjusted the hamburger icon, then replaced it with the provided hamburger image.
+- Changed the sidebar to open automatically on hover and close when the cursor leaves.
+- Removed the hamburger button after enabling automatic hover behavior.
+- Refined the sidebar animation, including fade-in text and faster sliding.
+- Updated sidebar descriptions:
+  - Session: Enter session information here.
+  - Recording: Preview recording and click start.
+  - Analysis: Review traces and blink data.
+  - Export: Write CSV and metadata outputs.
+- Renamed Acquire to Recording.
+- Moved Settings to the top right and changed it from a gear icon to a text button.
+- Added the UC Berkeley seal and the name "OM Lab BlinkTracker."
+- Made the app branding sticky while scrolling.
+- Made "OM Lab" smaller than "BlinkTracker."
+
+## Typography and Colors
+
+- Tested the San Francisco font, then removed it.
+- Changed the app font to Inter.
+- Removed the orange accent labels above section titles.
+- Changed orange buttons and icons to blue, ultimately using `#2980B9`.
+- Changed focused input borders to the same blue.
+- Kept primary button backgrounds solid instead of using gradients.
+- Improved placeholder styling so unselected dropdown prompts appear lighter.
+- Adjusted title, description, helper-text, button, and form spacing throughout the app.
+- Italicized helper text and section descriptions.
+- Removed unnecessary bold styling from buttons, Settings, calibration values, and status values.
+- Capitalized displayed status values such as Idle and Pending.
+- Changed the app background from a gradient to a solid color.
+
+## Session
+
+- Added a Pre-Session tab before Session for subject details, eye-health baseline, notes, environment check, and emotion check.
+- Moved subject ID, age, sex, ethnicity/race, eye-health, notes, environment, and emotion fields out of Session and into Pre-Session.
+- Added a Continue to Session Setup button on Pre-Session that opens the Session tab.
+- Refocused Session on recording setup, source selection, baseline calibration, output folder, raw video, and capture mode.
+- Renamed the main Session heading to "Session."
+- Shortened its description to: "Enter all session and subject information before beginning recording."
+- Removed the Session Bundle panel.
+- Added fields for:
+  - Session name and date
+  - Subject ID
+  - Age
+  - Sex
+  - Ethnicity/race
+  - Source type
+- Added Live Camera and Video File source options.
+- Added an Eye Health Baseline section.
+- Changed yes/no eye-health questions from dropdowns to checkboxes, while retaining the contact-lens-type follow-up.
+- Renamed "Worn contact lenses today" to "Wearing/Wore contact lenses today."
+- Added the Environment and Emotion Check section.
+- Split Environment and Emotion Check into separate Environment Check and Emotion Check sections.
+- Changed Current emotion from a dropdown to a checkbox group that can store multiple selected emotions.
+- Added room, device, brightness, viewing-distance, and emotion fields.
+- Moved the notes field into the Notes section.
+- Removed the Additional Notes heading.
+- Shortened the notes box and updated its prompt.
+- Renamed section headings for consistent capitalization.
+- Added Blink Calibration with a live camera preview.
+- Added a 10-second subject baseline recording.
+- Added live landmark overlays during baseline recording.
+- Added resting palpebral aperture recording and repositioned its field below the calibration controls.
+- Added baseline support for video-file sessions as well as live-camera sessions.
+- Added adjustable blink-classification thresholds.
+- Added visible labels identifying every classification threshold.
+- Improved spacing above the Create Session button.
+- Replaced the Capture Resolution checkbox with an explicit Capture Mode dropdown for choosing requested resolution/FPS modes.
+- Added startup/refresh camera mode probing so the Capture Mode dropdown uses negotiated camera modes instead of only static defaults.
+
+## Recording
+
+- Reduced spacing above the live camera preview.
+- Changed the Recording description to: "Preview Recording and click start."
+- Made active recording controls clearer and inactive controls gray.
+- Changed the recording indicator over the video to a simple red dot.
+- Changed the active Recording button to a lighter pink.
+- Removed bold text from recording buttons.
+- Removed Trace Window and Trace Mode controls.
+- Changed live-camera raw video recording to try MP4 first and automatically fall back to WebM when MP4 is unavailable.
+- During preview, limited metrics to basic information such as FPS and resolution.
+- Hid Preview Time and Latest Timestamp before recording starts.
+- Restored Latest Timestamp while recording.
+- Added a button to continue to Analysis after recording finishes.
+- Improved camera labels to show available resolution and FPS modes.
+- Added camera source labels so camera choices show whether they appear to be built-in laptop, USB/external, virtual, default, or unknown sources.
+- Removed the long FPS/resolution mode summaries from the camera dropdown labels.
+- Removed technical device-code suffixes from displayed camera names.
+- Added a live-camera fallback so baseline calibration and Recording preview retry with the system default camera if the selected browser camera ID fails.
+- Changed camera discovery to use the browser/Electron camera list first and stopped repeated startup FPS/resolution probing, which could interfere with live camera startup on some Windows camera drivers.
+- Fixed baseline re-recording so pressing Record 10-Second Baseline again clears the previous baseline and restarts live camera playback correctly.
+- Renamed the Capture Mode default option to explain that Auto lets the camera choose its default resolution and FPS.
+- Updated Auto Capture Mode so it shows the actual resolution and FPS after BlinkTracker opens the camera.
+- Replaced live tracking-confidence pop-ups with a permanent confidence panel below the Recording camera preview.
+- Reduced the Recording live camera preview height so the page takes up less vertical space.
+- Added automatic blink detection when opening a Database session that does not already have saved blink rows.
+- Lowered the default Partial blink threshold to 10% closure and loosened shallow-dip detection so smaller video-confirmed partial blinks can be detected.
+- Further lowered partial blink detection/classification to 5% closure, accepted 5-point shallow dips, and allowed gradual partial candidates up to 600 ms.
+- Reverted overly loose partial detection: partials again require 20% local closure, shallow dips require a 15-point drop, and candidates longer than 320 ms are rejected.
+- Changed blink closure calculation to use local event opening as the reference, so low but stable eye opening is not mistaken for a blink.
+- Added a recovered-partial-dip rule so meaningful partial blinks that close and return toward baseline can be detected over a longer 1.2-second window and highlighted green.
+- Changed Analysis graph highlighting so complete blinks stay pink while partial/unclassified detected dips appear green.
+- Updated Analysis highlighting to use numeric peak closure first, so below-complete blink events render green even if an older label says complete.
+- Updated Analysis highlighting to recalculate closure from the loaded trace segment when possible, avoiding stale saved classifications/colors.
+- Changed bilateral blink closure/classification from lower-eye opening to average left/right opening, so one deeper/noisier eye does not make a partial bilateral blink Complete.
+- Added threshold normalization so Complete min closure cannot be lower than Partial max closure; this prevents partial blinks from being classified as Complete due to invalid saved Settings.
+- Updated blink classification thresholds to Complete >= 85% closure and Partial 25% to under 85% closure.
+- Replaced the two-class Complete/Partial setup with Complete >90%, Near-Complete 80% to under 90%, and Partial 20% to under 80%; removed the Unclassified output category.
+- Marked unavailable additional cameras only as "not previewable."
+- Added direct video processing so an uploaded video can move to Analysis without being re-recorded in real time.
+- Improved video metadata loading and MediaPipe video-processing compatibility.
+
+## Analysis
+
+- Added a Database screen for finding past sessions without manually browsing through File Explorer.
+- Added filters for Subject ID and Date on the Database screen.
+- Added one-click opening from the Database screen into Analysis.
+- Removed Session Details from the Analysis screen.
+- Added review and blink-summary metrics, including:
+  - Data FPS
+  - Data frames
+  - Video FPS
+  - Video frames
+  - Total blinks
+  - Complete blinks
+  - Partial blinks
+  - Blink rate
+- Removed gaze-direction and predominant-gaze metrics.
+- Added blink timing metrics:
+  - Average closing time
+  - Average opening time
+  - Average blink duration
+- Added inter-blink interval metrics:
+  - Average interval
+  - Maximum interval
+  - Blink pair surrounding the maximum interval
+  - Interval regularity
+  - Interval trend over time
+- Removed baseline blink-rate and comparison-to-baseline fields.
+- Changed trace highlighting so detected drops/blinks use pink highlighting only.
+- Fixed trace rendering so the chart shows one blue line and one orange line rather than accumulating duplicate traces.
+- Added more spacing before the Open Session Folder button.
+- Added reference-video playback speed buttons for 0.25x, 0.5x, 1x, and 2x during Analysis review.
+- Sanitized video FPS and video frame-count metrics so unreliable container metadata shows as NA instead of impossible values.
+- Added a decoded-frame-count fallback for videos whose container metadata does not report usable frame counts.
+- Changed Analysis graph dragging so normal dragging zooms the graph; manual blink range creation only happens after selecting Add Blink From Trace.
+- Restored graph click-to-seek so clicking the trace moves the red video-sync playhead while dragging still zooms.
+- Added direct dragging for the red playhead line on the Analysis graph.
+
+## Blink Detection and Classification
+
+- Added automatic blink-event detection from eyelid-opening traces.
+- Stored detected blink classifications with each event.
+- Added adjustable classifications for:
+  - Complete blinks
+  - Partial blinks
+  - Unclassified events
+- Simplified threshold settings so only Complete and Partial blink thresholds are adjustable.
+- Changed blink classification so Complete and Partial labels are based on closure amount only.
+- Removed duration-threshold controls and the slow-motion classification checkbox.
+- Changed the default Partial blink range to 20% to under 90% closure.
+- Added support for separating a partial closure followed by a complete closure into distinct events when the trace recovers between them.
+- Added support for splitting close double blinks when the eye reopens to at least 50% between two valleys at least 80 ms apart.
+- Expanded detection to recognize clear drops in eyelid opening.
+- Tightened detection to reduce false positives from small trace movements.
+- Removed reliance on gaze direction when deciding whether a blink occurred.
+- Added checks for a local drop, meaningful closure, and recovery around each candidate event.
+- Kept the minimum blink-duration filter as a hard guard so too-short or same-frame candidates are logged and not saved as real blink events.
+- Added a landmark visibility gate so blink detection only runs when the relevant eye landmarks are visible.
+- Continued using each subject's baseline eye opening to calculate closure percentage.
+
+## Export and Data
+
+- Preserved blink classifications in the detected-blink data.
+- Continued supporting CSV and metadata output.
+- Updated navigation wording for Export to: "Write CSV and metadata outputs."
+- Added a living rules-and-thresholds reference document at `docs/current_rules_and_thresholds.md`.
+
+## Reliability and App Setup
+
+- Rebuilt the desktop application so interface updates persist after reopening it.
+- Corrected Python environment and missing-package setup issues.
+- Updated MediaPipe integration for the installed version.
+- Fixed uploaded-video processing errors involving missing landmark values.
+- Added a friendlier warning when the desktop bridge is outdated and the app needs to be restarted.
+- Removed in-app blink-threshold editing so Auto-detect always uses the backend's fixed Complete, Near-Complete, and Partial rules.
+- Updated Analysis graph classification colors: Complete blinks are green, Near-Complete blinks are yellow, and Partial blinks are pink.
+- Added a Velocity tab under Analysis with an eyelid velocity graph and per-blink max closing/opening speed summaries.
+- Expanded the Pre-Session screen with detailed eye-health questions, 0-5 symptom ratings, general health today, and environment-prior-to-session prompts saved into session metadata.
+- Added a Post-Session tab with ocular symptoms, reading comfort, vision, reading experience, and device/environment ratings saved into `post_session` metadata.
+- Added Total time to the Analysis Velocity blink table, calculated from each blink's end time minus start time.
+- Changed the Analysis Velocity graph to show opening percent change per millisecond and changed the Velocity table to show closing/opening time in milliseconds.
+- Changed yes/no questionnaire prompts to explicit Yes and No checkboxes and made the Pre-Session Eye Health questions display one per line.
+- Narrowed the Pre-Session Eye Health question rows and renamed "Wearing/Wore contact lenses today" to "Wore contact lenses today."
+- Moved Eye Health follow-up fields next to their related Yes/No question when there is enough horizontal space.
+- Replaced typed scale-number fields with clickable rating choices and added the 0-5 symptom scale description.
+- Added a guard that prevents starting another live recording inside a session that already contains recorded frame data.
+- Added Go to Post-Session and Go to Analysis buttons after a live recording finishes.
+- Loaded the finished recording into Analysis state immediately after stopping so the next screen uses the just-completed session.
+- Added an Analysis Before / After tab that appears when post-session data exists and compares matching pre-session vs post-session symptom ratings.
+- Changed elapsed/current/duration time displays in Recording and Analysis from raw seconds to minutes:seconds formatting.
+- Restored the Pre-Session Eye Health questions to the regular two-column form layout while keeping the updated question wording.
+- Renamed "Wore contact lenses today" to "Wore contact lenses earlier today."
+- Cleared Pre-Session fields automatically after a session is created while preserving recording setup choices needed by the Recording screen.
+- Cleared Post-Session fields automatically after saving.
+- Removed the Auto-Detect Blinks confirmation pop-up in Analysis.
+- Changed the empty Analysis screen action from "Open Session Folder" to "Go to Database."
+- Added a baseline lighting reminder beside Blink Calibration.
+- Split Post-Session questions into Baseline / Kaleidoscope and Reading Session modes.
+- Reset graph interaction state when switching away from the Analysis Review tab to avoid tab-switch glitches.
+- Added a Compare Sessions tab for selecting two saved sessions and viewing blink classification output, summary metrics, side-by-side traces, overlay traces, and an automatic Session B minus Session A difference summary.
+- Added a persistent Current session label in the page header showing the active session name, subject ID, and date while navigating between tabs.
+- Added low-confidence explanations in Analysis manual review rows so users can see why a blink was flagged.
+- Added task labels in Analysis so users can mark time ranges such as resting, reading, screen condition, or brightness condition.
+- Added built-in Complete, Near-Complete, Partial, and Unclassified threshold explanations inside the Analysis blink classification output.
+- Updated Database so it refreshes automatically after a new session is created.
+- Added a recording data-quality warning when estimated recording FPS drops below 25 FPS after the first 2 seconds; the warning is saved to metadata and the session audit log.
+- Refined Compare Sessions Difference Summary by removing Total blinks and adding plain-English change descriptions such as increased/decreased blink rate, longer/shorter intervals, and faster/slower velocity.
+- Added a `possible_gaze_or_downward_look` quality flag for auto-detected events with slow eyelid movement or incomplete recovery, using velocity as a review flag rather than a hard blink rejection rule.
+- Added more top spacing above the Session A / Session B selectors in the Compare Sessions tab.
+- Added a Session Summary tab in Analysis with plain-English blink pattern, classification mix, timing, interval, review-flag, recording-quality, and task-label notes.
+- Kept Analysis task labels as a manual text entry with start/end time fields and current-time helper buttons.
+- Added a first-open welcome dialog with two choices: record a new session, which opens Pre-Session, or access past sessions, which opens Database.
+- Restyled the Pre-Session and Post-Session screens into a more Google Forms-like questionnaire layout with centered form width, stacked question sections, and one-question-per-line blocks.
+- Hid the Analysis Before / After symptoms tab unless the loaded session has at least one matching pre-session and post-session symptom response, preventing empty NA comparison screens.
+- Added Analysis opening normalization so a subject's observed open-eye level can be treated as 100% open for the displayed trace, Review metrics, Velocity graph, and Session Summary.
+- Added a saved per-session manual opening-normalization reference with a Use Observed shortcut based on the session trace.
+- Moved opening normalization controls beside the Analysis view buttons and added a Reset button to clear the saved manual normalization.
+- Removed the bordered Classification thresholds box in Analysis and replaced it with a simple helper line under the blink classification metrics, without Unclassified wording.
+- Updated Manual Review to number each blink, add a task field for each blink, and replace the free-text notes field with a confidence/quality explanation.
+- Replaced the Manual Review task-label dropdown with a free-text task field for each blink and removed the separate Task Labels section from Analysis.
+- Removed the Near-Complete blink classification. New auto-detection now classifies Complete as above 80% closure and Partial as 20% to under 80% closure; legacy Near-Complete rows display/count as Complete.
+- Changed the Analysis "Open Another Session" action into "Go to Database" so users choose sessions from the Database tab instead of a folder picker.
+- Removed the Analysis opening normalization feature and returned the trace, Review metrics, Velocity graph, and Session Summary to the original recorded opening percentages.
+- Updated auto-detection so deep closures near 0% opening are detected as blinks even when the subject's surrounding opening is lower than usual, as long as the trace recovers toward that local opening level.
+- Changed blink classification thresholds to Complete above 75% closure and Partial 20% to under 75% closure.
+- Undid the deep-closure auto-detection change; the detector is back to the prior deep-valley behavior while keeping the 75% Complete / 20-75% Partial classification thresholds.
+- Removed the trace plots below Compare Sessions Difference Summary and removed Complete, Partial, and Unclassified rows from the Difference Summary table.
+- Added a quick blink-confirmation system in Analysis Manual Review with Replay Blink, Confirm, Not a Blink, optional notes, immediate saving, and automatic advance to the next active blink.
+- Updated Database and Compare Sessions so saved blink rows, including human-rejected/deleted rows, are preserved and not overwritten by automatic blink detection.
+- Changed blink confirmation into a popup that shows a cropped trace view and reference-video clip for the selected auto-detected blink duration, reducing scrolling during human review.
+- Updated the blink confirmation popup so it appears over the Analysis trace area, uses larger rounded Confirm / Not a Blink buttons, and plays the reference clip from 1 second before blink start to 1 second after the blink closing peak.
+- Made velocity units explicit as `%/ms` in the Analysis Velocity tab and Compare Sessions velocity metrics.
+- Added a Notes column to Database so notes can be written directly inside each session row and saved to that session without opening File Explorer.
+- Added a live tracking audio alert for baseline calibration and live camera recording when no face is detected, landmarks are low-confidence, the face is near the frame edge, the subject appears too far away, or head movement is too large for stable tracking.
+- Refined the Database notes layout by narrowing the Session table column, making notes an inline pill-shaped textbox, and auto-saving notes as the user types.
+- Added living `session_index.csv` and `session_index.xlsx` spreadsheets in the selected session root folder. They mirror the Database tab and refresh when sessions are scanned or session metadata, including notes, is updated. The `.xlsx` version opens with wider columns.
+- Added optional prepared review clips under Analysis Manual Review. The app can create short per-blink MP4 clips in `review_clips`, reuse them in the blink-confirmation popup, and fall back to the full reference video when clips are not prepared.
+- Made Manual Review action buttons pill-shaped, including Prepare Review Clips, Start Review, Open Review Popup, Replay Blink, Confirm, and Not a Blink.
+- Added Review Popup timing controls so a human reviewer can edit blink start/end times, set edges to the current video/trace time, save timing, or split one detected candidate into two blink events.
+- Added playback speed buttons inside the Review Popup video clip so prepared blink clips can be reviewed at 0.25x, 0.5x, 1x, or 2x without returning to Reference View.
+- Updated the Review Popup confirmation flow so Confirm asks whether the blink is Complete or Partial, while Not a Blink asks whether the candidate is Flutter, Downward Gaze, or Other with notes before saving and advancing.
+- Moved Prepare Review Clips progress and completion text into the Manual Review card instead of showing it as a top-of-screen status banner.
+- Combined Prepare Review Clips and Start Review into one workflow: pressing Start Review/Open Review Popup now prepares missing clips automatically, saves them in the session's `review_clips` folder, and reuses saved clip paths when Analysis is reopened.
+- Fixed Start Review so it always opens the blink review popup for the selected, first unreviewed, or first active blink, and changed the popup to a fixed screen overlay so it is visible from the Manual Review section.
+- Changed Start Review so the review popup opens immediately and review-clip preparation runs afterward in the background, preventing clip-preparation issues from blocking human review.
+- Updated Manual Review so Start Review opens the first active blink unless a specific blink row is selected, moved the popup overlay back over the Analysis trace area, replaced timing input/buttons with draggable blink edges in the popup trace crop, disabled popup trace zooming, and added an Add Blink drag mode inside the popup.
+- Made Review Popup video playback more robust by matching saved review clips across old/new clip keys, auto-playing clips when the popup opens, and falling back to the original reference video if a prepared mini-clip cannot be decoded.
+- Removed the prepared/replay review-clips feature and its backend/Electron bridge. Manual Review now uses the original reference video directly while keeping the Confirm / Not a Blink decision flow.
+- Added a clearer Manual Review error if the app window is still using an older desktop bridge that does not expose prepared review clips yet.
+- Made the Settings button toggle closed by returning to the last non-Settings tab, and added an Edit Session button beside Settings for updating the current session's name, date, subject details, and notes.
+- Removed the misleading Frame Count column from the generated `session_index.csv` and `session_index.xlsx` database spreadsheet files.
+- Changed Database session ordering to use the session creation/recording timestamp instead of the metadata file's last-modified time, so opening or editing a session no longer moves it to the top.
+- Fixed Analysis video metrics so Video FPS and Video Frames are re-probed after Auto-Detect reloads the session, preventing them from changing to NA just because the same video path was reloaded.
+- Strengthened the Analysis video-metric refresh by probing the reloaded session's media path directly after Auto-Detect instead of relying only on React state changes.
+- Fixed Manual Review choice buttons so Complete/Partial and Not-a-Blink reasons stop trace event bubbling, save the selected review decision, and advance to the next unreviewed blink.

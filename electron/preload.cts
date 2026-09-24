@@ -9,9 +9,11 @@ const api: ElectronApi = {
   createSession: (payload: CreateSessionRequest): Promise<CreateSessionResponse> =>
     ipcRenderer.invoke('session:create', payload),
   loadSession: (payload) => ipcRenderer.invoke('session:load', payload),
+  listSessions: (payload) => ipcRenderer.invoke('session:list', payload),
   detectBlinks: (payload) => ipcRenderer.invoke('blink:detect', payload),
   saveBlinkEdits: (payload) => ipcRenderer.invoke('blink:save-edits', payload),
   probeVideo: (path) => ipcRenderer.invoke('video:probe', path),
+  processVideo: (payload) => ipcRenderer.invoke('video:process', payload),
   updateSessionMetadata: (payload) => ipcRenderer.invoke('session:update-metadata', payload),
   appendAuditLog: (payload) => ipcRenderer.invoke('session:append-audit', payload),
   persistFrameMeasurement: (payload) => ipcRenderer.invoke('pipeline:persist-frame', payload),

@@ -6,9 +6,10 @@ from typing import Any
 
 from app.analysis.blinks import detect_blinks, save_blink_edits
 from app.capture.camera import list_cameras
+from app.capture.video_processor import process_video
 from app.capture.video_reader import probe_video
 from app.io.session_store import append_frame_row
-from app.io.session_store import append_audit_log, create_session, load_session, update_session_metadata
+from app.io.session_store import append_audit_log, create_session, list_sessions, load_session, update_session_metadata
 from app.ipc.contracts import camera_payload, enrich_response, parse_create_session_request
 
 
@@ -44,6 +45,11 @@ def main() -> int:
         _emit(probe_video(path))
         return 0
 
+    if command == "process-video":
+        payload = _read_stdin_json()
+        _emit(process_video(payload["sessionFolder"], payload["videoFilePath"]))
+        return 0
+
     if command == "update-session-metadata":
         payload = _read_stdin_json()
         _emit(update_session_metadata(payload["sessionFolder"], payload["updates"]))
@@ -54,6 +60,11 @@ def main() -> int:
         _emit(load_session(payload["sessionFolder"]))
         return 0
 
+    if command == "list-sessions":
+        payload = _read_stdin_json()
+        _emit(list_sessions(payload["rootFolder"]))
+        return 0
+
     if command == "detect-blinks":
         payload = _read_stdin_json()
         _emit({"blinkRows": detect_blinks(payload["sessionFolder"])})
@@ -61,7 +72,14 @@ def main() -> int:
 
     if command == "save-blink-edits":
         payload = _read_stdin_json()
-        _emit({"blinkRows": save_blink_edits(payload["sessionFolder"], payload["blinkRows"])})
+        _emit(
+            {
+                "blinkRows": save_blink_edits(
+                    payload["sessionFolder"],
+                    payload["blinkRows"],
+                )
+            }
+        )
         return 0
 
     if command == "append-audit-log":

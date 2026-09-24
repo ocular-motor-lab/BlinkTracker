@@ -7,9 +7,11 @@ import type {
   AuditLogEntryRequest,
   CreateSessionRequest,
   DetectBlinksRequest,
+  ListSessionsRequest,
   LoadSessionRequest,
   PersistFrameMeasurementsRequest,
   PersistFrameMeasurementRequest,
+  ProcessVideoRequest,
   SaveRawVideoRequest,
   SaveBlinkEditsRequest,
   UpdateSessionMetadataRequest
@@ -163,9 +165,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('session:create', (_, payload: CreateSessionRequest) => pythonBridge.createSession(payload));
   ipcMain.handle('session:load', (_, payload: LoadSessionRequest) => pythonBridge.loadSession(payload));
+  ipcMain.handle('session:list', (_, payload: ListSessionsRequest) => pythonBridge.listSessions(payload));
   ipcMain.handle('blink:detect', (_, payload: DetectBlinksRequest) => pythonBridge.detectBlinks(payload));
   ipcMain.handle('blink:save-edits', (_, payload: SaveBlinkEditsRequest) => pythonBridge.saveBlinkEdits(payload));
   ipcMain.handle('video:probe', (_, payload: string) => pythonBridge.probeVideo(payload));
+  ipcMain.handle('video:process', (_, payload: ProcessVideoRequest) => pythonBridge.processVideo(payload));
   ipcMain.handle('session:update-metadata', (_, payload: UpdateSessionMetadataRequest) =>
     pythonBridge.updateSessionMetadata(payload)
   );

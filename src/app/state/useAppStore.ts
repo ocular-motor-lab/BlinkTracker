@@ -5,6 +5,7 @@ import type {
   CreateSessionRequest,
   CreateSessionResponse,
   LoadedSessionResponse,
+  PostSessionFormValues,
   SessionFormValues
 } from '@ipc/schemas';
 
@@ -48,7 +49,7 @@ const getStoredPreferences = (): AppPreferences => {
       return defaultPreferences;
     }
     const parsed = JSON.parse(raw) as Partial<AppPreferences>;
-    return {
+    const preferences = {
       defaultSourceType:
         parsed.defaultSourceType === 'video_file' ? 'video_file' : defaultPreferences.defaultSourceType,
       defaultSaveRawVideo:
@@ -60,6 +61,14 @@ const getStoredPreferences = (): AppPreferences => {
           ? parsed.defaultPreferHighResolution
           : defaultPreferences.defaultPreferHighResolution
     };
+
+    try {
+      window.localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify(preferences));
+    } catch {
+      // Ignore storage failures and keep the in-memory value.
+    }
+
+    return preferences;
   } catch {
     return defaultPreferences;
   }
@@ -67,10 +76,55 @@ const getStoredPreferences = (): AppPreferences => {
 
 const buildInitialSessionForm = (preferences: AppPreferences): SessionFormValues => ({
   sessionName: '',
+  sessionDate: new Date().toISOString().slice(0, 10),
   subjectId: '',
+  subjectAge: '',
+  subjectSex: '',
+  subjectRaceEthnicity: '',
   notes: '',
+  diagnosedDryEye: '',
+  usesEyeDrops: '',
+  eyeDropsDetails: '',
+  eyeDropsLastTwoHours: '',
+  wearsContactLenses: '',
+  contactLensType: '',
+  wornContactsToday: '',
+  wearingContactLensesNow: '',
+  wearsGlasses: '',
+  wearingGlassesToday: '',
+  recentEyeSurgery: '',
+  eyeSurgeryDetails: '',
+  eyeAllergies: '',
+  eyeAllergyDetails: '',
+  symptomDryness: '',
+  symptomTiredness: '',
+  symptomBurningStinging: '',
+  symptomBlurryVision: '',
+  symptomLightSensitivity: '',
+  sleepHours: '',
+  consumedCaffeine: '',
+  caffeineTiming: '',
+  consumedAlcohol24h: '',
+  alertnessEyeMeds: '',
+  feelingSick: '',
+  stressLevel: '',
+  energyLevel: '',
+  screenReadingDurationToday: '',
+  priorAirConditioningHeating: '',
+  priorWindSun: '',
+  dryEnvironmentToday: '',
+  roomTemperature: '',
+  deviceUsed: '',
+  screenBrightness: '',
+  viewingDistanceCm: '',
+  currentEmotion: '',
+  calibrationReminderAcknowledged: false,
+  restingPalpebralAperture: '',
+  calibrationFrameRows: [],
+  calibrationSummary: null,
   sourceType: preferences.defaultSourceType,
   cameraDeviceId: '',
+  cameraMode: '',
   videoFilePath: '',
   outputFolder: getStoredOutputFolder(),
   saveRawVideo: preferences.defaultSaveRawVideo,
@@ -80,11 +134,47 @@ const buildInitialSessionForm = (preferences: AppPreferences): SessionFormValues
 const initialPreferences = getStoredPreferences();
 const initialSessionForm: SessionFormValues = buildInitialSessionForm(initialPreferences);
 
+const defaultPostSessionForm: PostSessionFormValues = {
+  postSessionContext: 'reading',
+  postSymptomDryness: '',
+  postSymptomTiredness: '',
+  postSymptomBurningStinging: '',
+  postSymptomBlurryVision: '',
+  postSymptomLightSensitivity: '',
+  symptomsDuringReading: '',
+  symptomsDuringReadingTiming: '',
+  readingEyeComfort: '',
+  discomfortIncreased: '',
+  urgeRubEyes: '',
+  urgeLookAway: '',
+  urgeBlinkMore: '',
+  eyePressureHeaviness: '',
+  visionClearThroughout: '',
+  textHarderToFocus: '',
+  textHarderToFocusTiming: '',
+  headacheDuringAfter: '',
+  concentrationEase: '',
+  mentalFatigueEnd: '',
+  physicalFatigueEnd: '',
+  distractedDuringSession: '',
+  distractionDetails: '',
+  screenBrightnessComfort: '',
+  roomLightingComfort: '',
+  fontSizeComfort: '',
+  viewingDistanceComfort: '',
+  roomTemperatureComfort: '',
+  baselineVideoComfort: '',
+  baselineVideoEyeStrain: '',
+  baselineVideoMotionDiscomfort: '',
+  baselineVideoNotes: ''
+};
+
 interface AppState {
   activeTab: AppTab;
   cameras: CameraInfo[];
   preferences: AppPreferences;
   sessionForm: SessionFormValues;
+  postSessionForm: PostSessionFormValues;
   lastCreatedSession: CreateSessionResponse | null;
   analysisSession: LoadedSessionResponse | null;
   cameraPermissionState: 'unknown' | 'granted' | 'denied' | 'unsupported';
@@ -95,8 +185,11 @@ interface AppState {
   setActiveTab: (tab: AppTab) => void;
   setPreference: <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => void;
   resetSessionForm: () => void;
+  resetPostSessionForm: () => void;
   clearRememberedOutputFolder: () => void;
   setSessionFormValue: <K extends keyof SessionFormValues>(key: K, value: SessionFormValues[K]) => void;
+  setPostSessionForm: (values: Partial<PostSessionFormValues>) => void;
+  setPostSessionFormValue: <K extends keyof PostSessionFormValues>(key: K, value: PostSessionFormValues[K]) => void;
   setCameras: (cameras: CameraInfo[]) => void;
   setCameraPermissionState: (value: 'unknown' | 'granted' | 'denied' | 'unsupported') => void;
   setIsLoadingCameras: (value: boolean) => void;
@@ -109,10 +202,11 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  activeTab: 'session',
+  activeTab: 'preSession',
   cameras: [],
   preferences: initialPreferences,
   sessionForm: initialSessionForm,
+  postSessionForm: defaultPostSessionForm,
   lastCreatedSession: null,
   analysisSession: null,
   cameraPermissionState: 'unknown',
@@ -127,7 +221,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.preferences,
         [key]: value
       };
-
       if (typeof window !== 'undefined') {
         try {
           window.localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify(preferences));
@@ -156,6 +249,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       sessionForm: buildInitialSessionForm(state.preferences)
     })),
+  resetPostSessionForm: () => set({ postSessionForm: defaultPostSessionForm }),
   clearRememberedOutputFolder: () =>
     set((state) => {
       if (typeof window !== 'undefined') {
@@ -190,6 +284,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       };
     }),
+  setPostSessionForm: (values) =>
+    set((state) => ({
+      postSessionForm: {
+        ...state.postSessionForm,
+        ...values
+      }
+    })),
+  setPostSessionFormValue: (key, value) =>
+    set((state) => ({
+      postSessionForm: {
+        ...state.postSessionForm,
+        [key]: value
+      }
+    })),
   setCameras: (cameras) => set({ cameras }),
   setCameraPermissionState: (value) => set({ cameraPermissionState: value }),
   setIsLoadingCameras: (value) => set({ isLoadingCameras: value }),

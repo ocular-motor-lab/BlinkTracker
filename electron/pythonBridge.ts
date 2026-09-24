@@ -37,7 +37,9 @@ const isExecutableFile = (candidate: string): boolean => {
 };
 
 const resolveVenvPython = (): string | null => {
-  const binRoot = isPackaged ? path.join(process.resourcesPath, 'python', 'bin') : path.join(backendRoot, '.venv', 'bin');
+  const binRoot = isPackaged
+    ? path.join(process.resourcesPath, 'python', 'bin')
+    : path.join(backendRoot, '.venv', process.platform === 'win32' ? 'Scripts' : 'bin');
   const preferred = process.platform === 'win32' ? ['python.exe', 'python'] : ['python3.12', 'python3.11', 'python3', 'python'];
 
   for (const executable of preferred) {
@@ -239,9 +241,11 @@ export const pythonBridge = {
   listCameras: () => runPythonCommand('list-cameras'),
   createSession: (payload: unknown) => runPythonCommand('create-session', payload),
   loadSession: (payload: unknown) => runPythonCommand('load-session', payload),
+  listSessions: (payload: unknown) => runPythonCommand('list-sessions', payload),
   detectBlinks: (payload: unknown) => runPythonCommand('detect-blinks', payload),
   saveBlinkEdits: (payload: unknown) => runPythonCommand('save-blink-edits', payload),
   probeVideo: (payload: unknown) => runPythonCommand('probe-video', payload),
+  processVideo: (payload: unknown) => runPythonCommand('process-video', payload),
   updateSessionMetadata: (payload: unknown) => runPythonCommand('update-session-metadata', payload),
   appendAuditLog: (payload: unknown) => runPythonCommand('append-audit-log', payload),
   persistFrameMeasurement: (payload: unknown) => runWorkerCommand('persist-frame', payload),

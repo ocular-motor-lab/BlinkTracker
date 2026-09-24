@@ -23,7 +23,6 @@ export const ExportPage = (): JSX.Element => {
       <div className="card">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Export</p>
             <h3>Session outputs</h3>
           </div>
           <p className="section-copy">
@@ -52,7 +51,6 @@ export const ExportPage = (): JSX.Element => {
       <div className="card">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Notes</p>
             <h3>Current behavior</h3>
           </div>
         </div>
